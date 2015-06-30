@@ -38,6 +38,7 @@ int    num_lines;
 // Internal functions.
 ///////////////////////////////////////////////////////////////////////////
 
+// Separate the raw buffer into a sequence of indexed lines.
 void find_lines() {
   char *buf_copy = strdup(buffer);
   char *buf_copy_ptr = buf_copy;
