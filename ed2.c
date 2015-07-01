@@ -6,10 +6,14 @@
 // (TODO Add stuff here.)
 //
 
+// Local library includes.
+#include "cstructs/cstructs.h"
+
 // Library includes.
 #include <readline/readline.h>
 
 // Standard includes.
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,41 +27,38 @@
 // The current filename.
 char   filename[1024];
 
-// The buffer that holds the text.
-char * buffer;
-size_t buffer_size;  // This excludes a final NULL terminator.
-
-// 0-indexed line n has its 1st character at line_indexes[n] and its last
-// at line_indexes[n + 1] - 1.
-// The last line begines at line_indexes[num_lines - 1].
-int *  line_indexes;
-int    num_lines;
+// The lines are held in an array. The array frees removed lines for us.
+// The byte stream can be formed by joining this array with "\n".
+Array  lines = NULL;
 
 
 ///////////////////////////////////////////////////////////////////////////
 // Internal functions.
 ///////////////////////////////////////////////////////////////////////////
 
-// Separate the raw buffer into a sequence of indexed lines.
-void find_lines() {
-  char *buf_copy = strdup(buffer);
-  char *buf_copy_ptr = buf_copy;
-  num_lines = 0;
+void line_releaser(void *line_vp, void *context) {
+  char *line = *(char **)line_vp;
+  assert(line);
+  free(line);
+}
+
+// Initialize our data structures.
+void init() {
+  lines = array__new(64, sizeof(char *));
+  lines->releaser = line_releaser;
+}
+
+// Separate a raw buffer into a sequence of indexed lines.
+// Destroys the buffer in the process.
+void find_lines(char *buffer) {
+  assert(lines);  // Check that lines has been initialized.
+  assert(buffer);
+
+  char *buffer_ptr = buffer;
   char *line;
-
-  // TODO Correctly allocate line_indexes; maybe using cstructs is good.
-  line_indexes = malloc(128 * sizeof(int));
-
-  while ((line = strsep(&buf_copy_ptr, "\n"))) {
-    printf("line:\n%s\n", line);
-    line_indexes[num_lines++] = (line - buf_copy);
-    printf("%x\n", line_indexes[num_lines - 1]);
+  while ((line = strsep(&buffer_ptr, "\n"))) {
+    array__new_val(lines, char *) = strdup(line);
   }
-  line_indexes[num_lines] = strlen(buffer);
-  printf("%x\n", line_indexes[num_lines]);
-  printf("num_lines=%d\n", num_lines);
-
-  free(buf_copy);
 }
 
 // Load the file at the global `filename` into the global `buffer`.
@@ -68,8 +69,8 @@ void load_file() {
   int is_err = fstat(fileno(f), &file_stats);
   // TODO Handle is_err != 0.
 
-  buffer_size = file_stats.st_size;
-  buffer = malloc(buffer_size + 1);  // + 1 for the final NULL character.
+  size_t buffer_size = file_stats.st_size;
+  char * buffer = malloc(buffer_size + 1);  // + 1 for the final NULL character.
 
   is_err = fread(buffer,       // buffer ptr
                  1,            // item size
@@ -81,7 +82,8 @@ void load_file() {
 
   fclose(f);
 
-  find_lines();
+  find_lines(buffer);
+  free(buffer);
 }
 
 
@@ -92,8 +94,7 @@ void load_file() {
 int main(int argc, char **argv) {
 
   // Initialization.
-
-  buffer_size = 0;  // Indicates no buffer is loaded.
+  init();
 
   if (argc < 2) {
     // The empty string indicates no filename has been given yet.
@@ -103,7 +104,9 @@ int main(int argc, char **argv) {
     load_file();
 
     // TEMP
-    printf("File contents:'''\n%s'''\n", buffer);
+    printf("File contents:'''\n");
+    array__for(char **, line, lines, i) printf("%s%s", (i ? "\n" : ""), *line);
+    printf("'''\n");
   }
 
   // Enter our read-eval-print loop (REPL).

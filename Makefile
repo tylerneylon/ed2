@@ -17,7 +17,7 @@ cc = cc $(cflags)
 all: $(obj) ed2
 
 ed2: ed2.c $(obj)
-	$(cc) ed2.c -o ed2 -lreadline
+	$(cc) ed2.c -o ed2 -lreadline $(obj)
 
 clean:
 	rm -rf out
