@@ -59,6 +59,15 @@ void init() {
   current_line = 0;
 }
 
+int last_line() {
+  // If the last entry in `lines` is the empty string, then the file ends in a
+  // newline; pay attention to this to avoid an off-by-one error.
+  if (*array__item_val(lines, lines->count - 1, char *) == '\0') {
+    return lines->count - 1;
+  }
+  return lines->count;
+}
+
 // Separate a raw buffer into a sequence of indexed lines.
 // Destroys the buffer in the process.
 void find_lines(char *buffer) {
@@ -71,12 +80,7 @@ void find_lines(char *buffer) {
     array__new_val(lines, char *) = strdup(line);
   }
 
-  // Set the current line to the last, keeping in mind that a final empty string
-  // in `lines` indicates the buffer ends with a newline.
-  current_line = lines->count;
-  if (*array__item_val(lines, lines->count - 1, char *) == '\0') {
-    current_line--;
-  }
+  current_line = last_line();
 }
 
 // Load the file at the global `filename` into the global `buffer`.
@@ -103,6 +107,48 @@ void load_file() {
   find_lines(buffer);
   free(buffer);
   printf("%zd\n", buffer_size);  // Report how many bytes we read.
+}
+
+// TODO Test/debug this.
+// This parses out any initial line range from a command, returning a
+// pointer to the remainder of the command string after the range.
+char *parse_range(char *command, int *start, int *end) {
+
+  // For now, we'll parse ranges of the following types:
+  //  * <no range>
+  //  * ,
+  //  * %
+  //  * <int>
+  //  * <int>,
+  //  * <int>,<int>
+
+  // Set up the default range.
+  *start = *end = current_line;
+
+  // The ',' and '%' cases.
+  if (*command == ',' || *command == '%') {
+    *start = 1;
+    *end   = last_line();
+    return command + 1;
+  }
+
+  int num_chars_parsed;
+  int num_parsed = sscanf(command, "%d%n", start, &num_chars_parsed);
+  command += num_chars_parsed;
+
+  // The <no range> case.
+  if (num_parsed == 0) return command;
+
+  // The <int> case.
+  current_line = *end = *start;
+  if (*command != ',') return command;
+
+  command++;  // Skip over the ',' character.
+  num_parsed = sscanf(command, "%d%n", end, &num_chars_parsed);
+  command += num_chars_parsed;
+
+  // The <int>,<int> and <int>, cases.
+  return command;
 }
 
 void run_command(char *command) {
