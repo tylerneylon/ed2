@@ -21,6 +21,19 @@
 
 
 ///////////////////////////////////////////////////////////////////////////
+// Debug.
+///////////////////////////////////////////////////////////////////////////
+
+#define show_debug_output 0
+
+#if show_debug_output
+#define dbg_printf(...) printf(__VA_ARGS__)
+#else
+#define dbg_printf(...)
+#endif
+
+
+///////////////////////////////////////////////////////////////////////////
 // Globals.
 ///////////////////////////////////////////////////////////////////////////
 
@@ -128,13 +141,13 @@ char *parse_range(char *command, int *start, int *end) {
   // The ',' and '%' cases.
   if (*command == ',' || *command == '%') {
     *start = 1;
-    *end   = last_line();
+    current_line = *end = last_line();
     return command + 1;
   }
 
   int num_chars_parsed;
   int num_parsed = sscanf(command, "%d%n", start, &num_chars_parsed);
-  command += num_chars_parsed;
+  command += num_chars_parsed * (num_parsed > 0);
 
   // The <no range> case.
   if (num_parsed == 0) return command;
@@ -145,7 +158,7 @@ char *parse_range(char *command, int *start, int *end) {
 
   command++;  // Skip over the ',' character.
   num_parsed = sscanf(command, "%d%n", end, &num_chars_parsed);
-  command += num_chars_parsed;
+  command += num_chars_parsed * (num_parsed > 0);
 
   // The <int>,<int> and <int>, cases.
   return command;
@@ -153,11 +166,19 @@ char *parse_range(char *command, int *start, int *end) {
 
 void run_command(char *command) {
 
+  dbg_printf("run command: \"%s\"\n", command);
+
   if (strcmp(command, "q") == 0) exit(0);
 
+  int start, end;
+  command = parse_range(command, &start, &end);
+  dbg_printf("After parse_range, s=%d e=%d c=\"%s\"\n", start, end, command);
   if (strcmp(command, "p") == 0) {
-    // Print the current line.
-    printf("%s\n", array__item_val(lines, current_line - 1, char *));
+    dbg_printf("Range parsed as [%d, %d]. Command as 'p'.\n", start, end);
+    // Print the lines in the range [start,end].
+    for (int i = start; i <= end; ++i) {
+      printf("%s\n", array__item_val(lines, i - 1, char *));
+    }
   }
 }
 
@@ -178,10 +199,9 @@ int main(int argc, char **argv) {
     strcpy(filename, argv[1]);
     load_file();
 
-    // TEMP Turn this on to help debug.
-    if (0) {
+    if (show_debug_output) {
       printf("File contents:'''\n");
-      array__for(char **, line, lines, i) printf("%s%s", (i ? "\n" : ""), *line);
+      array__for(char **, line, lines, i) printf(i ? "\n%s" : "%s", *line);
       printf("'''\n");
     }
   }
