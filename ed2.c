@@ -48,6 +48,7 @@ int    current_line;
 
 char   last_error[1024];
 
+int    do_print_errors = 0;
 
 ///////////////////////////////////////////////////////////////////////////
 // Internal functions.
@@ -178,6 +179,7 @@ void print_line(int line_index) {
 void error(const char *err_str) {
   strcpy(last_error, err_str);
   printf("?\n");
+  if (do_print_errors) printf("%s\n", last_error);
 }
 
 void run_command(char *command) {
@@ -185,7 +187,7 @@ void run_command(char *command) {
   dbg_printf("run command: \"%s\"\n", command);
 
   if (*command == '\0') {
-    error("invalid address\n");
+    error("invalid address");
     return;
   }
 
@@ -203,6 +205,14 @@ void run_command(char *command) {
     dbg_printf("Range parsed as [%d, %d]. Command as 'p'.\n", start, end);
     // Print the lines in the range [start,end].
     for (int i = start; i <= end; ++i) print_line(i);
+  }
+
+  if (strcmp(command, "h") == 0) {
+    if (last_error[0]) printf("%s\n", last_error);
+  }
+
+  if (strcmp(command, "H") == 0) {
+    do_print_errors = !do_print_errors;
   }
 }
 
