@@ -6,6 +6,10 @@
 // (TODO Add stuff here.)
 //
 
+// TODO
+// [ ] Don't accept empty commands.
+//
+
 // Local library includes.
 #include "cstructs/cstructs.h"
 
@@ -159,9 +163,14 @@ char *parse_range(char *command, int *start, int *end) {
   command++;  // Skip over the ',' character.
   num_parsed = sscanf(command, "%d%n", end, &num_chars_parsed);
   command += num_chars_parsed * (num_parsed > 0);
+  if (num_parsed > 0) current_line = *end;
 
   // The <int>,<int> and <int>, cases.
   return command;
+}
+
+void print_line(int line_index) {
+  printf("%s\n", array__item_val(lines, line_index - 1, char *));
 }
 
 void run_command(char *command) {
@@ -173,12 +182,14 @@ void run_command(char *command) {
   int start, end;
   command = parse_range(command, &start, &end);
   dbg_printf("After parse_range, s=%d e=%d c=\"%s\"\n", start, end, command);
+
+  // The empty command updates `current_line` and prints it out.
+  if (*command == '\0') print_line(current_line);
+
   if (strcmp(command, "p") == 0) {
     dbg_printf("Range parsed as [%d, %d]. Command as 'p'.\n", start, end);
     // Print the lines in the range [start,end].
-    for (int i = start; i <= end; ++i) {
-      printf("%s\n", array__item_val(lines, i - 1, char *));
-    }
+    for (int i = start; i <= end; ++i) print_line(i);
   }
 }
 
