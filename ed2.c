@@ -6,10 +6,6 @@
 // (TODO Add stuff here.)
 //
 
-// TODO
-// [ ] Don't accept empty commands.
-//
-
 // Local library includes.
 #include "cstructs/cstructs.h"
 
@@ -50,6 +46,8 @@ Array  lines = NULL;
 
 int    current_line;
 
+char   last_error[1024];
+
 
 ///////////////////////////////////////////////////////////////////////////
 // Internal functions.
@@ -74,6 +72,8 @@ void init() {
   // non-obvious in that our lines array is 0-indexed, so we have to be careful
   // when indexing into `lines`.
   current_line = 0;
+
+  strcpy(last_error, "");
 }
 
 int last_line() {
@@ -127,9 +127,9 @@ void load_file() {
 }
 
 // TODO Test/debug this.
-// This parses out any initial line range from a command, returning a
-// pointer to the remainder of the command string after the range.
-char *parse_range(char *command, int *start, int *end) {
+// This parses out any initial line range from a command, returning the number
+// of characters parsed.
+int parse_range(char *command, int *start, int *end) {
 
   // For now, we'll parse ranges of the following types:
   //  * <no range>
@@ -142,45 +142,58 @@ char *parse_range(char *command, int *start, int *end) {
   // Set up the default range.
   *start = *end = current_line;
 
+  int parsed = 0;
+
   // The ',' and '%' cases.
   if (*command == ',' || *command == '%') {
     *start = 1;
     current_line = *end = last_line();
-    return command + 1;
+    return 1;  // Parsed 1 character.
   }
 
   int num_chars_parsed;
   int num_parsed = sscanf(command, "%d%n", start, &num_chars_parsed);
-  command += num_chars_parsed * (num_parsed > 0);
+  parsed += num_chars_parsed * (num_parsed > 0);
 
   // The <no range> case.
-  if (num_parsed == 0) return command;
+  if (num_parsed == 0) return parsed;
 
   // The <int> case.
   current_line = *end = *start;
-  if (*command != ',') return command;
+  if (*(command + parsed) != ',') return parsed;
 
-  command++;  // Skip over the ',' character.
-  num_parsed = sscanf(command, "%d%n", end, &num_chars_parsed);
-  command += num_chars_parsed * (num_parsed > 0);
+  parsed++;  // Skip over the ',' character.
+  num_parsed = sscanf(command + parsed, "%d%n", end, &num_chars_parsed);
+  parsed += num_chars_parsed * (num_parsed > 0);
   if (num_parsed > 0) current_line = *end;
 
   // The <int>,<int> and <int>, cases.
-  return command;
+  return parsed;
 }
 
 void print_line(int line_index) {
   printf("%s\n", array__item_val(lines, line_index - 1, char *));
 }
 
+void error(const char *err_str) {
+  strcpy(last_error, err_str);
+  printf("?\n");
+}
+
 void run_command(char *command) {
 
   dbg_printf("run command: \"%s\"\n", command);
 
+  if (*command == '\0') {
+    error("invalid address\n");
+    return;
+  }
+
   if (strcmp(command, "q") == 0) exit(0);
 
   int start, end;
-  command = parse_range(command, &start, &end);
+  int num_range_chars = parse_range(command, &start, &end);
+  command += num_range_chars;
   dbg_printf("After parse_range, s=%d e=%d c=\"%s\"\n", start, end, command);
 
   // The empty command updates `current_line` and prints it out.
