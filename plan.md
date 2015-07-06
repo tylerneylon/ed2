@@ -18,3 +18,42 @@ but I think the
 extra work would go toward optimization that the user wouldn't
 even notice. What makes the most sense to me is to
 keep the code simple.
+
+## Command list
+
+Below are the commands I'd like to include.
+There are some other features, but my purpose is not really to exactly duplicate
+`ed`. Rather, I'm learning and having some fun. I think implementing these
+features will be enough. I suspect the main fun will come from building a
+regular expression engine.
+
+### Feedback-only / general commands
+
+- [x] ` ` (just a range) update current line
+- [x] `p` print
+- [x] `h` print last error
+- [x] `H` toggle error printing
+- [x] `q` quit
+- [ ] `=` print current line number
+
+### Editing commands
+
+- [ ] `a` append line(s)
+- [ ] `i` insert line(s)
+- [ ] `c` change line(s)
+- [ ] `j` join line(s)
+- [ ] `m` move line(s)
+- [ ] `n` number line(s)
+- [ ] `u` undo
+
+### File commands
+
+- [ ] `e` edit a file
+- [ ] `w` write to file
+
+### Regex-based commands
+
+- [ ] `g` global regex command
+- [ ] `v` inVerse global regex command
+- [ ] `s` substitution
+
