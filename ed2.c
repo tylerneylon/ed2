@@ -201,6 +201,14 @@ void run_command(char *command) {
   // The empty command updates `current_line` and prints it out.
   if (*command == '\0') print_line(current_line);
 
+  if (strcmp(command, "=") == 0) {
+    if (num_range_chars == 0) {
+      printf("%d\n", last_line());
+    } else {
+      printf("%d\n", end);
+    }
+  }
+
   if (strcmp(command, "p") == 0) {
     dbg_printf("Range parsed as [%d, %d]. Command as 'p'.\n", start, end);
     // Print the lines in the range [start,end].

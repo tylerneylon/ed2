@@ -34,7 +34,7 @@ regular expression engine.
 - [x] `h` print last error
 - [x] `H` toggle error printing
 - [x] `q` quit
-- [ ] `=` print current line number
+- [x] `=` print addressed line number
 
 ### Editing commands
 
