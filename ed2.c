@@ -2,8 +2,13 @@
 //
 // An ed-like text editor.
 //
-// There's not much here yet.
-// (TODO Add stuff here.)
+// Usage:
+//   ed2 [filename]
+//
+// Opens filename if present, or a new buffer if no filename is given.
+// Edit/save the buffer with essentially the same commands as the original
+// ed text editor. See plan.md for a summary of which ed commands have been
+// implemented.
 //
 
 // Local library includes.
@@ -182,6 +187,38 @@ void error(const char *err_str) {
   if (do_print_errors) printf("%s\n", last_error);
 }
 
+// This enters multi-line input mode. It accepts lines of input, including
+// meaningful blank lines, until a line with a single period is given.
+// The lines are appended to the end of the given `lines` Array.
+void read_in_lines(Array lines) {
+  while (1) {
+    char *line = readline("");
+    if (strcmp(line, ".") == 0) return;
+    array__new_val(lines, char *) = strdup(line);
+  }
+}
+
+// This inserts all of `sub` into `arr` so that arr[index] = sub[0].
+// TODO Modify cstructs to make this easier.
+void insert_subarr_into_arr(Array sub, Array arr, int index) {
+  assert(arr->item_size == sub->item_size);
+  int arr_count = arr->count;
+  int sub_count = sub->count;
+  array__add_zeroed_items(arr, sub->count);
+  for (int i = arr_count - 1; i >= index; --i) {
+    // arr[i + sub_count] = arr[i]
+    memcpy(array__item_ptr(arr, i + sub_count),  // dst
+           array__item_ptr(arr, i),              // src
+           arr->item_size);                      // size
+  }
+  for (int i = 0; i < sub_count; ++i) {
+    // arr[i + index] = sub[i]
+    memcpy(array__item_ptr(arr, i + index),  // dst
+           array__item_ptr(sub, i),          // src
+           arr->item_size);                  // size
+  }
+}
+
 void run_command(char *command) {
 
   dbg_printf("run command: \"%s\"\n", command);
@@ -200,6 +237,10 @@ void run_command(char *command) {
 
   // The empty command updates `current_line` and prints it out.
   if (*command == '\0') print_line(current_line);
+
+  // TODO Clean up this command parsing bit.
+  //  * Consider using a switch.
+  //  * Design carefully about treating the command suffix.
 
   if (strcmp(command, "=") == 0) {
     if (num_range_chars == 0) {
@@ -221,6 +262,19 @@ void run_command(char *command) {
 
   if (strcmp(command, "H") == 0) {
     do_print_errors = !do_print_errors;
+  }
+
+  // TODO NEXT
+  // [ ] Make sure <line_num>a works properly.
+  // [ ] Make sure current_line is properly set after an a command.
+  // [ ] Clarify in code how parse_range affects current_line.
+
+  if (strcmp(command, "a") == 0) {
+    Array new_lines = array__new(16, sizeof(char *));
+    read_in_lines(new_lines);
+    insert_subarr_into_arr(new_lines, lines, current_line + 1);
+    current_line += new_lines->count;
+    array__delete(new_lines);
   }
 }
 
