@@ -132,9 +132,9 @@ void load_file() {
   printf("%zd\n", buffer_size);  // Report how many bytes we read.
 }
 
-// TODO Test/debug this.
 // This parses out any initial line range from a command, returning the number
-// of characters parsed.
+// of characters parsed. If a range is successfully parsed, then current_line is
+// updated to the end of this range.
 int parse_range(char *command, int *start, int *end) {
 
   // For now, we'll parse ranges of the following types:
@@ -264,15 +264,10 @@ void run_command(char *command) {
     do_print_errors = !do_print_errors;
   }
 
-  // TODO NEXT
-  // [ ] Make sure <line_num>a works properly.
-  // [ ] Make sure current_line is properly set after an a command.
-  // [ ] Clarify in code how parse_range affects current_line.
-
   if (strcmp(command, "a") == 0) {
     Array new_lines = array__new(16, sizeof(char *));
     read_in_lines(new_lines);
-    insert_subarr_into_arr(new_lines, lines, current_line + 1);
+    insert_subarr_into_arr(new_lines, lines, current_line);
     current_line += new_lines->count;
     array__delete(new_lines);
   }
