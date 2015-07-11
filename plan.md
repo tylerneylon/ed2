@@ -38,8 +38,8 @@ regular expression engine.
 
 ### Editing commands
 
-- [ ] `a` append line(s)
-- [ ] `i` insert line(s)
+- [x] `a` append line(s)
+- [x] `i` insert line(s)
 - [ ] `c` change line(s)
 - [ ] `j` join line(s)
 - [ ] `m` move line(s)

@@ -219,6 +219,18 @@ void insert_subarr_into_arr(Array sub, Array arr, int index) {
   }
 }
 
+// Enters line-reading mode and inserts the lines at the given 0-based index.
+void read_and_insert_lines_at(int index) {
+  // Silently clamp the index to legal values.
+  if (index < 0)            index = 0;
+  if (index > lines->count) index = lines->count;
+  Array new_lines = array__new(16, sizeof(char *));
+  read_in_lines(new_lines);
+  insert_subarr_into_arr(new_lines, lines, index);
+  current_line += new_lines->count;
+  array__delete(new_lines);
+}
+
 void run_command(char *command) {
 
   dbg_printf("run command: \"%s\"\n", command);
@@ -236,7 +248,9 @@ void run_command(char *command) {
   dbg_printf("After parse_range, s=%d e=%d c=\"%s\"\n", start, end, command);
 
   // The empty command updates `current_line` and prints it out.
-  if (*command == '\0') print_line(current_line);
+  if (*command == '\0') {
+    print_line(current_line);
+  }
 
   // TODO Clean up this command parsing bit.
   //  * Consider using a switch.
@@ -265,11 +279,11 @@ void run_command(char *command) {
   }
 
   if (strcmp(command, "a") == 0) {
-    Array new_lines = array__new(16, sizeof(char *));
-    read_in_lines(new_lines);
-    insert_subarr_into_arr(new_lines, lines, current_line);
-    current_line += new_lines->count;
-    array__delete(new_lines);
+    read_and_insert_lines_at(current_line);
+  }
+
+  if (strcmp(command, "i") == 0) {
+    read_and_insert_lines_at(current_line - 1);
   }
 }
 
