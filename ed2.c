@@ -231,6 +231,16 @@ void read_and_insert_lines_at(int index) {
   array__delete(new_lines);
 }
 
+// Print out the given lines; useful for the p or empty commands.
+// This simply produces an error if the range is invalid.
+void print_range(int start, int end) {
+  if (start < 1 || end > last_line()) {
+    error("invalid address");
+    return;
+  }
+  for (int i = start; i <= end; ++i) print_line(i);
+}
+
 void run_command(char *command) {
 
   dbg_printf("run command: \"%s\"\n", command);
@@ -249,7 +259,7 @@ void run_command(char *command) {
 
   // The empty command updates `current_line` and prints it out.
   if (*command == '\0') {
-    print_line(current_line);
+    print_range(current_line, current_line);
   }
 
   // TODO Clean up this command parsing bit.
@@ -266,8 +276,7 @@ void run_command(char *command) {
 
   if (strcmp(command, "p") == 0) {
     dbg_printf("Range parsed as [%d, %d]. Command as 'p'.\n", start, end);
-    // Print the lines in the range [start,end].
-    for (int i = start; i <= end; ++i) print_line(i);
+    print_range(start, end);
   }
 
   if (strcmp(command, "h") == 0) {
