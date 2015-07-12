@@ -231,14 +231,27 @@ void read_and_insert_lines_at(int index) {
   array__delete(new_lines);
 }
 
+int is_range_ok(int start, int end) {
+  if (start < 1 || end > last_line()) {
+    error("invalid address");
+    return 0;
+  }
+  return 1;
+}
+
 // Print out the given lines; useful for the p or empty commands.
 // This simply produces an error if the range is invalid.
 void print_range(int start, int end) {
-  if (start < 1 || end > last_line()) {
-    error("invalid address");
-    return;
-  }
+  if (!is_range_ok(start, end)) return;
   for (int i = start; i <= end; ++i) print_line(i);
+}
+
+void delete_range(int start, int end) {
+  if (!is_range_ok(start, end)) return;
+  for (int n = end - start + 1; n > 0; --n) {
+    array__remove_item(lines, array__item_ptr(lines, start - 1));
+  }
+  current_line = (start <= last_line() ? start : last_line());
 }
 
 void run_command(char *command) {
@@ -260,6 +273,7 @@ void run_command(char *command) {
   // The empty command updates `current_line` and prints it out.
   if (*command == '\0') {
     print_range(current_line, current_line);
+    return;
   }
 
   // TODO Clean up this command parsing bit.
@@ -267,33 +281,44 @@ void run_command(char *command) {
   //  * Design carefully about treating the command suffix.
 
   if (strcmp(command, "=") == 0) {
-    if (num_range_chars == 0) {
-      printf("%d\n", last_line());
-    } else {
-      printf("%d\n", end);
-    }
+    int line_num = (num_range_chars == 0 ? last_line() : end);
+    printf("%d\n", line_num);
+    return;
   }
 
   if (strcmp(command, "p") == 0) {
     dbg_printf("Range parsed as [%d, %d]. Command as 'p'.\n", start, end);
     print_range(start, end);
+    return;
   }
 
   if (strcmp(command, "h") == 0) {
     if (last_error[0]) printf("%s\n", last_error);
+    return;
   }
 
   if (strcmp(command, "H") == 0) {
     do_print_errors = !do_print_errors;
+    return;
   }
 
   if (strcmp(command, "a") == 0) {
     read_and_insert_lines_at(current_line);
+    return;
   }
 
   if (strcmp(command, "i") == 0) {
     read_and_insert_lines_at(current_line - 1);
+    return;
   }
+
+  if (strcmp(command, "d") == 0) {
+    delete_range(start, end);
+    return;
+  }
+
+  // If we get here, the command wasn't recognized.
+  error("unknown command");
 }
 
 
