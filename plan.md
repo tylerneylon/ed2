@@ -41,7 +41,7 @@ regular expression engine.
 - [x] `a` append line(s)
 - [x] `i` insert line(s)
 - [x] `d` delete line(s)
-- [ ] `c` change line(s)
+- [x] `c` change line(s)
 - [ ] `j` join line(s)
 - [ ] `m` move line(s)
 - [ ] `n` number line(s)

@@ -317,6 +317,13 @@ void run_command(char *command) {
     return;
   }
 
+  if (strcmp(command, "c") == 0) {
+    int is_ending_range = (end == last_line());
+    delete_range(start, end);
+    read_and_insert_lines_at(is_ending_range ? last_line() : current_line - 1);
+    return;
+  }
+
   // If we get here, the command wasn't recognized.
   error("unknown command");
 }
