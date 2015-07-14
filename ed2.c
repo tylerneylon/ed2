@@ -55,6 +55,16 @@ char   last_error[1024];
 
 int    do_print_errors = 0;
 
+
+///////////////////////////////////////////////////////////////////////////
+// Macros.
+///////////////////////////////////////////////////////////////////////////
+
+// This can be used for both setting and getting.
+// Don't forget to free the old value if setting.
+#define line_at(index) array__item_val(lines, index, char *)
+
+
 ///////////////////////////////////////////////////////////////////////////
 // Internal functions.
 ///////////////////////////////////////////////////////////////////////////
@@ -85,7 +95,7 @@ void init() {
 int last_line() {
   // If the last entry in `lines` is the empty string, then the file ends in a
   // newline; pay attention to this to avoid an off-by-one error.
-  if (*array__item_val(lines, lines->count - 1, char *) == '\0') {
+  if (*line_at(lines->count - 1) == '\0') {
     return lines->count - 1;
   }
   return lines->count;
@@ -178,7 +188,7 @@ int parse_range(char *command, int *start, int *end) {
 }
 
 void print_line(int line_index) {
-  printf("%s\n", array__item_val(lines, line_index - 1, char *));
+  printf("%s\n", line_at(line_index - 1));
 }
 
 void error(const char *err_str) {
@@ -231,27 +241,56 @@ void read_and_insert_lines_at(int index) {
   array__delete(new_lines);
 }
 
-int is_range_ok(int start, int end) {
+// Returns true iff the range is bad.
+int err_if_bad_range(int start, int end) {
   if (start < 1 || end > last_line()) {
     error("invalid address");
-    return 0;
+    return 1;
   }
-  return 1;
+  return 0;
 }
 
 // Print out the given lines; useful for the p or empty commands.
 // This simply produces an error if the range is invalid.
 void print_range(int start, int end) {
-  if (!is_range_ok(start, end)) return;
+  if (err_if_bad_range(start, end)) return;
   for (int i = start; i <= end; ++i) print_line(i);
 }
 
 void delete_range(int start, int end) {
-  if (!is_range_ok(start, end)) return;
+  if (err_if_bad_range(start, end)) return;
   for (int n = end - start + 1; n > 0; --n) {
     array__remove_item(lines, array__item_ptr(lines, start - 1));
   }
   current_line = (start <= last_line() ? start : last_line());
+}
+
+void join_range(int start, int end, int is_default_range) {
+
+  // 1. Establish and check the validity of the range.
+  if (is_default_range) {
+    start = current_line;
+    end   = current_line + 1;
+  }
+  if (err_if_bad_range(start, end)) return;
+  if (start == end) return;
+
+  // 2. Calculate the size we need.
+  size_t joined_len = 1;  // Start at 1 for the null terminator.
+  for (int i = start; i <= end; ++i) joined_len += strlen(line_at(i - 1));
+
+  // 3. Allocate, join, and set the new line.
+  char *new_line = malloc(joined_len);
+  new_line[0] = '\0';
+  for (int i = start; i <= end; ++i) strcat(new_line, line_at(i - 1));
+  free(line_at(start - 1));
+  line_at(start - 1) = new_line;
+  // This method is valid because of the range checks at the function start.
+  for (int i = start + 1; i <= end; ++i) {
+    array__remove_item(lines, array__item_ptr(lines, i - 1));
+  }
+
+  current_line = start;  // The current line is the newly joined line.
 }
 
 void run_command(char *command) {
@@ -269,6 +308,7 @@ void run_command(char *command) {
   int num_range_chars = parse_range(command, &start, &end);
   command += num_range_chars;
   dbg_printf("After parse_range, s=%d e=%d c=\"%s\"\n", start, end, command);
+  int is_default_range = (num_range_chars == 0);
 
   // The empty command updates `current_line` and prints it out.
   if (*command == '\0') {
@@ -281,7 +321,7 @@ void run_command(char *command) {
   //  * Design carefully about treating the command suffix.
 
   if (strcmp(command, "=") == 0) {
-    int line_num = (num_range_chars == 0 ? last_line() : end);
+    int line_num = (is_default_range ? last_line() : end);
     printf("%d\n", line_num);
     return;
   }
@@ -321,6 +361,11 @@ void run_command(char *command) {
     int is_ending_range = (end == last_line());
     delete_range(start, end);
     read_and_insert_lines_at(is_ending_range ? last_line() : current_line - 1);
+    return;
+  }
+
+  if (strcmp(command, "j") == 0) {
+    join_range(start, end, is_default_range);
     return;
   }
 

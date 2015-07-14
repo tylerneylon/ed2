@@ -42,7 +42,7 @@ regular expression engine.
 - [x] `i` insert line(s)
 - [x] `d` delete line(s)
 - [x] `c` change line(s)
-- [ ] `j` join line(s)
+- [x] `j` join line(s)
 - [ ] `m` move line(s)
 - [ ] `n` number line(s)
 - [ ] `u` undo
