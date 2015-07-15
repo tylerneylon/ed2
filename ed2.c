@@ -250,6 +250,16 @@ int err_if_bad_range(int start, int end) {
   return 0;
 }
 
+// Returns true iff the new current line is bad.
+int err_if_bad_current_line(int new_current_line) {
+  if (new_current_line < 1 || new_current_line > last_line()) {
+    error("invalid address");  // TODO Drop magic strings.
+    return 1;
+  }
+  current_line = new_current_line;
+  return 0;
+}
+
 // Print out the given lines; useful for the p or empty commands.
 // This simply produces an error if the range is invalid.
 void print_range(int start, int end) {
@@ -297,80 +307,73 @@ void run_command(char *command) {
 
   dbg_printf("run command: \"%s\"\n", command);
 
-  if (*command == '\0') {
-    error("invalid address");
-    return;
-  }
-
-  if (strcmp(command, "q") == 0) exit(0);
-
   int start, end;
   int num_range_chars = parse_range(command, &start, &end);
   command += num_range_chars;
   dbg_printf("After parse_range, s=%d e=%d c=\"%s\"\n", start, end, command);
   int is_default_range = (num_range_chars == 0);
 
-  // The empty command updates `current_line` and prints it out.
-  if (*command == '\0') {
-    print_range(current_line, current_line);
-    return;
+  switch(*command) {
+
+    case 'q':  // Quit.  TODO Error if a range is provided.
+      exit(0);
+
+    case '\0': // If no range was given, advence a line. Print current_line.
+      {
+        if (is_default_range) {
+          if (err_if_bad_current_line(current_line + 1)) return;
+        }
+        print_range(current_line, current_line);
+        break;
+      }
+
+    case '=':  // Print the range's end line num, or last line num on no range.
+      printf("%d\n", (is_default_range ? last_line() : end));
+      break;
+
+    case 'p':  // Print all lines in the effective range.
+      print_range(start, end);
+      break;
+
+    case 'h':  // Print last error, if there was one.
+      if (last_error[0]) printf("%s\n", last_error);
+      break;
+      
+    case 'H':  // Toggle error printing.
+      do_print_errors = !do_print_errors;
+      break;
+
+    case 'a':  // Append new lines.
+      read_and_insert_lines_at(current_line);
+      break;
+
+    case 'i':  // Insert new lines.
+      read_and_insert_lines_at(current_line - 1);
+      break;
+
+    case 'd':  // Delete lines in the effective range.
+      delete_range(start, end);
+      break;
+
+    case 'c':  // Change effective range lines into newly input lines.
+      {
+        int is_ending_range = (end == last_line());
+        delete_range(start, end);
+        int insert_point = is_ending_range ? last_line() : current_line - 1;
+        read_and_insert_lines_at(insert_point);
+        break;
+      }
+
+    case 'j':  // Join the lines in the effective rnage.
+      join_range(start, end, is_default_range);
+      break;
+
+    default:  // If we get here, the command wasn't recognized.
+      error("unknown command");
   }
 
   // TODO Clean up this command parsing bit.
-  //  * Consider using a switch.
   //  * Design carefully about treating the command suffix.
-
-  if (strcmp(command, "=") == 0) {
-    int line_num = (is_default_range ? last_line() : end);
-    printf("%d\n", line_num);
-    return;
-  }
-
-  if (strcmp(command, "p") == 0) {
-    dbg_printf("Range parsed as [%d, %d]. Command as 'p'.\n", start, end);
-    print_range(start, end);
-    return;
-  }
-
-  if (strcmp(command, "h") == 0) {
-    if (last_error[0]) printf("%s\n", last_error);
-    return;
-  }
-
-  if (strcmp(command, "H") == 0) {
-    do_print_errors = !do_print_errors;
-    return;
-  }
-
-  if (strcmp(command, "a") == 0) {
-    read_and_insert_lines_at(current_line);
-    return;
-  }
-
-  if (strcmp(command, "i") == 0) {
-    read_and_insert_lines_at(current_line - 1);
-    return;
-  }
-
-  if (strcmp(command, "d") == 0) {
-    delete_range(start, end);
-    return;
-  }
-
-  if (strcmp(command, "c") == 0) {
-    int is_ending_range = (end == last_line());
-    delete_range(start, end);
-    read_and_insert_lines_at(is_ending_range ? last_line() : current_line - 1);
-    return;
-  }
-
-  if (strcmp(command, "j") == 0) {
-    join_range(start, end, is_default_range);
-    return;
-  }
-
-  // If we get here, the command wasn't recognized.
-  error("unknown command");
 }
 
 
