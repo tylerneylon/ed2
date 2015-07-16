@@ -43,7 +43,7 @@ regular expression engine.
 - [x] `d` delete line(s)
 - [x] `c` change line(s)
 - [x] `j` join line(s)
-- [ ] `m` move line(s)
+- [x] `m` move line(s)
 - [ ] `n` number line(s)
 - [ ] `u` undo
 

@@ -39,6 +39,13 @@
 
 
 ///////////////////////////////////////////////////////////////////////////
+// Constants.
+///////////////////////////////////////////////////////////////////////////
+
+// TODO Define error strings here.
+
+
+///////////////////////////////////////////////////////////////////////////
 // Globals.
 ///////////////////////////////////////////////////////////////////////////
 
@@ -141,6 +148,14 @@ void load_file() {
   free(buffer);
   printf("%zd\n", buffer_size);  // Report how many bytes we read.
 }
+
+// This returns the number of characters scanned.
+int scan_number(char *command, int *num) {
+  int num_chars_parsed;
+  int num_items_parsed = sscanf(command, "%d%n", num, &num_chars_parsed);
+  return (num_items_parsed ? num_chars_parsed : 0);
+}
+// TODO Consider using scan_number from parse_range.
 
 // This parses out any initial line range from a command, returning the number
 // of characters parsed. If a range is successfully parsed, then current_line is
@@ -303,6 +318,28 @@ void join_range(int start, int end, int is_default_range) {
   current_line = start;  // The current line is the newly joined line.
 }
 
+// Moves the range [start, end] to after the text currently at line dst.
+void move_lines(int start, int end, int dst) {
+  // TODO Check that range, dst, and the pair are all valid.
+
+  // 1. Deep copy the lines being moved so we can call delete_range later.
+  Array moving_lines = array__new(end - start + 1, sizeof(char *));
+  for (int i = start; i <= end; ++i) {
+    array__new_val(moving_lines, char *) = strdup(line_at(i - 1));
+  }
+
+  // 2. Append the deep copy after dst.
+  insert_subarr_into_arr(moving_lines, lines, dst);
+  array__delete(moving_lines);
+
+  // 3. Remove the original range.
+  int range_len = end - start + 1;
+  int offset    = (dst > end ? 0 : range_len);
+  delete_range(start + offset, end + offset);
+
+  current_line = dst + offset;
+}
+
 void run_command(char *command) {
 
   dbg_printf("run command: \"%s\"\n", command);
@@ -312,6 +349,22 @@ void run_command(char *command) {
   command += num_range_chars;
   dbg_printf("After parse_range, s=%d e=%d c=\"%s\"\n", start, end, command);
   int is_default_range = (num_range_chars == 0);
+
+  // First consider commands that may have a suffix.
+  // This way we can easily give an error to an unexpected suffix in later code.
+
+  switch(*command) {
+    case 'm':
+      {
+        int dst_line;
+        int num_chars_parsed = scan_number(command + 1, &dst_line);
+        if (num_chars_parsed == 0) dst_line = current_line;
+        move_lines(start, end, dst_line);
+        return;
+      }
+  }
+
+  // TODO Check for, and complain about, any command suffix.
 
   switch(*command) {
 
