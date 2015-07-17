@@ -202,7 +202,8 @@ int parse_range(char *command, int *start, int *end) {
   return parsed;
 }
 
-void print_line(int line_index) {
+void print_line(int line_index, int do_add_number) {
+  if (do_add_number) printf("%d\t", line_index);
   printf("%s\n", line_at(line_index - 1));
 }
 
@@ -277,9 +278,9 @@ int err_if_bad_current_line(int new_current_line) {
 
 // Print out the given lines; useful for the p or empty commands.
 // This simply produces an error if the range is invalid.
-void print_range(int start, int end) {
+void print_range(int start, int end, int do_number_lines) {
   if (err_if_bad_range(start, end)) return;
-  for (int i = start; i <= end; ++i) print_line(i);
+  for (int i = start; i <= end; ++i) print_line(i, do_number_lines);
 }
 
 void delete_range(int start, int end) {
@@ -366,6 +367,8 @@ void run_command(char *command) {
 
   // TODO Check for, and complain about, any command suffix.
 
+  int do_number_lines = 0;
+
   switch(*command) {
 
     case 'q':  // Quit.  TODO Error if a range is provided.
@@ -376,7 +379,7 @@ void run_command(char *command) {
         if (is_default_range) {
           if (err_if_bad_current_line(current_line + 1)) return;
         }
-        print_range(current_line, current_line);
+        print_range(current_line, current_line, 0);  // 0 = don't add line num
         break;
       }
 
@@ -384,8 +387,12 @@ void run_command(char *command) {
       printf("%d\n", (is_default_range ? last_line() : end));
       break;
 
+    case 'n':  // Print lines with added line numbers.
+      do_number_lines = 1;
+      // Purposefully fall through to the next case.
+
     case 'p':  // Print all lines in the effective range.
-      print_range(start, end);
+      print_range(start, end, do_number_lines);
       break;
 
     case 'h':  // Print last error, if there was one.
