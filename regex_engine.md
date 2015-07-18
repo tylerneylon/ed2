@@ -1,5 +1,13 @@
 # Regex Engine for ed2
 
+**Note**: This file is obsolete. I plan to use a standard regex engine that appears to be
+a standard library with mac os x and ubuntu.
+
+I'm leaving this file around since it may be useful to a future me or anyone else
+crazy enough to create their own regex engine.
+
+---
+
 These are my notes as I plan and build the regex engine.
 
 ## The regex syntax
