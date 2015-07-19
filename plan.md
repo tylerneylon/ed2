@@ -45,7 +45,7 @@ regular expression engine.
 - [x] `j` join line(s)
 - [x] `m` move line(s)
 - [x] `n` number line(s)
-- [ ] `u` undo
+- [x] `u` undo
 
 ### File commands
 

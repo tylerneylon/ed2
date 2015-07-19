@@ -44,10 +44,16 @@
 
 // TODO Define error strings here.
 
+// The user can't undo when backup_current_line == no_valid_backup.
+#define no_valid_backup -1
+
 
 ///////////////////////////////////////////////////////////////////////////
 // Globals.
 ///////////////////////////////////////////////////////////////////////////
+
+char   last_error[1024];
+int    do_print_errors = 0;
 
 // The current filename.
 char   filename[1024];
@@ -58,9 +64,9 @@ Array  lines = NULL;
 
 int    current_line;
 
-char   last_error[1024];
-
-int    do_print_errors = 0;
+// Data used for undos.
+Array  backup_lines = NULL;
+int    backup_current_line;
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -82,10 +88,17 @@ void line_releaser(void *line_vp, void *context) {
   free(line);
 }
 
+Array new_lines_array() {
+  Array new_array = array__new(64, sizeof(char *));
+  new_array->releaser = line_releaser;
+  return new_array;
+}
+
 // Initialize our data structures.
 void init() {
-  lines = array__new(64, sizeof(char *));
-  lines->releaser = line_releaser;
+  lines               = new_lines_array();
+  backup_lines        = new_lines_array();
+  backup_current_line = no_valid_backup;
 
   // TODO This default only matters for new files. Study ed's behavior to
   //      determine what the current line effectively is for new files.
@@ -97,6 +110,25 @@ void init() {
   current_line = 0;
 
   strcpy(last_error, "");
+}
+
+// Backup functionality.
+
+void deep_copy_array(Array src, Array dst) {
+  array__clear(dst);
+  array__for(char **, line, src, i) {
+    array__new_val(dst, char *) = strdup(*line);
+  }
+}
+
+void save_state(Array saved_lines, int *saved_current_line) {
+  *saved_current_line = current_line;
+  deep_copy_array(lines, saved_lines);
+}
+
+void load_state_from_backup() {
+  deep_copy_array(backup_lines, lines);
+  current_line = backup_current_line;
 }
 
 int last_line() {
@@ -355,8 +387,9 @@ void run_command(char *command) {
   // This way we can easily give an error to an unexpected suffix in later code.
 
   switch(*command) {
-    case 'm':
+    case 'm':  // Move the range to right after the line given as a suffix num.
       {
+        save_state(backup_lines, &backup_current_line);
         int dst_line;
         int num_chars_parsed = scan_number(command + 1, &dst_line);
         if (num_chars_parsed == 0) dst_line = current_line;
@@ -404,19 +437,23 @@ void run_command(char *command) {
       break;
 
     case 'a':  // Append new lines.
+      save_state(backup_lines, &backup_current_line);
       read_and_insert_lines_at(current_line);
       break;
 
     case 'i':  // Insert new lines.
+      save_state(backup_lines, &backup_current_line);
       read_and_insert_lines_at(current_line - 1);
       break;
 
     case 'd':  // Delete lines in the effective range.
+      save_state(backup_lines, &backup_current_line);
       delete_range(start, end);
       break;
 
     case 'c':  // Change effective range lines into newly input lines.
       {
+        save_state(backup_lines, &backup_current_line);
         int is_ending_range = (end == last_line());
         delete_range(start, end);
         int insert_point = is_ending_range ? last_line() : current_line - 1;
@@ -425,8 +462,27 @@ void run_command(char *command) {
       }
 
     case 'j':  // Join the lines in the effective rnage.
+      save_state(backup_lines, &backup_current_line);
       join_range(start, end, is_default_range);
       break;
+
+    // TODO Check that a valid backup exists.
+    case 'u':  // Undo the last change, if there was one.
+      {
+        // 1. Current state -> swap.
+        Array swap_lines = new_lines_array();
+        int   swap_current_line;
+        save_state(swap_lines, &swap_current_line);
+
+        // 2. Backup -> current state.
+        load_state_from_backup();
+
+        // 3. Swap -> backup.
+        array__delete(backup_lines);
+        backup_lines        = swap_lines;
+        backup_current_line = swap_current_line;
+        break;
+      }
 
     default:  // If we get here, the command wasn't recognized.
       error("unknown command");
