@@ -82,6 +82,12 @@ int    backup_current_line;
 // Internal functions.
 ///////////////////////////////////////////////////////////////////////////
 
+void error(const char *err_str) {
+  strcpy(last_error, err_str);
+  printf("?\n");
+  if (do_print_errors) printf("%s\n", last_error);
+}
+
 void line_releaser(void *line_vp, void *context) {
   char *line = *(char **)line_vp;
   assert(line);
@@ -181,6 +187,39 @@ void load_file() {
   printf("%zd\n", buffer_size);  // Report how many bytes we read.
 }
 
+// Save the buffer. If filename is NULL, save it to the current filename.
+// This returns the number of bytes written on success and -1 on error.
+int save_file(char *new_filename) {
+  // TODO Check for a buffer overflow on the name size (and in main).
+  if (new_filename) strcpy(filename, new_filename);
+  if (strlen(filename) == 0) {
+    error("no current filename");
+    return -1;
+  }
+
+  FILE *f = fopen(filename, "wb");
+  // TODO Handle the case that f is NULL.
+
+  int nbytes_written = 0;
+  int was_error = 0;
+  array__for(char **, line, lines, i) {
+    int nbytes_this_line = 0;
+    if (i) nbytes_this_line += fwrite("\n", 1, 1, f);  // 1, 1 = size, nitems
+    size_t len = strlen(*line);
+    nbytes_this_line += fwrite(*line,  // buffer
+                               1,      // size
+                               len,    // nitems
+                               f);     // stream
+    if (nbytes_this_line < len + (i ? 1 : 0)) was_error = 1;
+    nbytes_written += nbytes_this_line;
+  }
+
+  if (was_error) error("error while writing");
+
+  fclose(f);
+  return nbytes_written;
+}
+
 // This returns the number of characters scanned.
 int scan_number(char *command, int *num) {
   int num_chars_parsed;
@@ -237,12 +276,6 @@ int parse_range(char *command, int *start, int *end) {
 void print_line(int line_index, int do_add_number) {
   if (do_add_number) printf("%d\t", line_index);
   printf("%s\n", line_at(line_index - 1));
-}
-
-void error(const char *err_str) {
-  strcpy(last_error, err_str);
-  printf("?\n");
-  if (do_print_errors) printf("%s\n", last_error);
 }
 
 // This enters multi-line input mode. It accepts lines of input, including
@@ -394,6 +427,14 @@ void run_command(char *command) {
         int num_chars_parsed = scan_number(command + 1, &dst_line);
         if (num_chars_parsed == 0) dst_line = current_line;
         move_lines(start, end, dst_line);
+        return;
+      }
+
+    case 'w':  // Save the buffer to a file.
+      {
+        // TODO Optionally accept a new filename.
+        int bytes_written = save_file(NULL);  // NULL = use the current filename
+        if (bytes_written >= 0) printf("%d\n", bytes_written);
         return;
       }
   }
