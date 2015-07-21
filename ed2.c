@@ -164,7 +164,12 @@ void find_lines(char *buffer) {
 // Load the file at the global `filename` into the global `buffer`.
 void load_file() {
   FILE *f = fopen(filename, "rb");
-  // TODO Handle the case that f is NULL.
+
+  if (f == NULL) {
+    printf("%s: No such file or directory\n", filename);
+    return;
+  }
+
   struct stat file_stats;
   int is_err = fstat(fileno(f), &file_stats);
   // TODO Handle is_err != 0.
@@ -432,8 +437,15 @@ void run_command(char *command) {
 
     case 'w':  // Save the buffer to a file.
       {
-        // TODO Optionally accept a new filename.
-        int bytes_written = save_file(NULL);  // NULL = use the current filename
+        char *new_filename = NULL;  // NULL makes save_file use the global name.
+        if (*++command != '\0') {
+          if (*command != ' ') {
+            error("unexpected command suffix");
+          } else {
+            new_filename = ++command;
+          }
+        }
+        int bytes_written = save_file(new_filename);
         if (bytes_written >= 0) printf("%d\n", bytes_written);
         return;
       }

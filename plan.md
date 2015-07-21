@@ -50,7 +50,7 @@ regular expression engine.
 ### File commands
 
 - [ ] `e` edit a file
-- [ ] `w` write to file
+- [x] `w` write to file
 
 ### Regex-based commands
 
