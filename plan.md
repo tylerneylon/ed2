@@ -49,7 +49,7 @@ regular expression engine.
 
 ### File commands
 
-- [ ] `e` edit a file
+- [x] `e` edit a file
 - [x] `w` write to file
 
 ### Regex-based commands

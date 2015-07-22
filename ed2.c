@@ -63,6 +63,7 @@ char   filename[1024];
 Array  lines = NULL;
 
 int    current_line;
+int    is_modified;  // This is set in save_state; it's called for edits.
 
 // Data used for undos.
 Array  backup_lines = NULL;
@@ -103,6 +104,8 @@ Array new_lines_array() {
 // Initialize our data structures.
 void init() {
   lines               = new_lines_array();
+  is_modified         = 0;
+
   backup_lines        = new_lines_array();
   backup_current_line = no_valid_backup;
 
@@ -128,6 +131,7 @@ void deep_copy_array(Array src, Array dst) {
 }
 
 void save_state(Array saved_lines, int *saved_current_line) {
+  is_modified = 1;
   *saved_current_line = current_line;
   deep_copy_array(lines, saved_lines);
 }
@@ -152,6 +156,10 @@ void find_lines(char *buffer) {
   assert(lines);  // Check that lines has been initialized.
   assert(buffer);
 
+  array__clear(lines);
+  backup_current_line = no_valid_backup;
+  is_modified = 0;
+
   char *buffer_ptr = buffer;
   char *line;
   while ((line = strsep(&buffer_ptr, "\n"))) {
@@ -161,8 +169,22 @@ void find_lines(char *buffer) {
   current_line = last_line();
 }
 
-// Load the file at the global `filename` into the global `buffer`.
-void load_file() {
+// Load a file. Use the global `filename` unless `new_filename` is non-NULL, in
+// which case, the new name replaces the global filename and is loaded.
+void load_file(char *new_filename) {
+
+  if (is_modified) {
+    error("warning: file modified");
+    return;
+  }
+
+  // TODO Check for a buffer overflow in the filename.
+  if (new_filename) strcpy(filename, new_filename);
+  if (strlen(filename) == 0) {
+    error("no current filename");
+    return;
+  }
+
   FILE *f = fopen(filename, "rb");
 
   if (f == NULL) {
@@ -221,6 +243,7 @@ int save_file(char *new_filename) {
 
   if (was_error) error("error while writing");
 
+  is_modified = 0;
   fclose(f);
   return nbytes_written;
 }
@@ -445,8 +468,25 @@ void run_command(char *command) {
             new_filename = ++command;
           }
         }
+        // TODO
+        //  [ ] Make this printf more similar to the load_file one, code-wise.
+        //  [ ] Look for ways to factor out {load,save}_file commonalities.
         int bytes_written = save_file(new_filename);
         if (bytes_written >= 0) printf("%d\n", bytes_written);
+        return;
+      }
+
+    case 'e':  // Load a file.
+      {
+        char *new_filename = NULL;  // NULL makes load_file use the global name.
+        if (*++command != '\0') {
+          if (*command != ' ') {
+            error("unexpected command suffix");
+          } else {
+            new_filename = ++command;
+          }
+        }
+        load_file(new_filename);
         return;
       }
   }
@@ -560,7 +600,7 @@ int main(int argc, char **argv) {
     filename[0] = '\0';
   } else {
     strcpy(filename, argv[1]);
-    load_file();
+    load_file(NULL);  // NULL --> use the global `filename`
 
     if (show_debug_output) {
       printf("File contents:'''\n");
