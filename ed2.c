@@ -47,16 +47,17 @@
 // The user can't undo when backup_current_line == no_valid_backup.
 #define no_valid_backup -1
 
+#define string_capacity 1024
 
 ///////////////////////////////////////////////////////////////////////////
 // Globals.
 ///////////////////////////////////////////////////////////////////////////
 
-char   last_error[1024];
+char   last_error[string_capacity];
 int    do_print_errors = 0;
 
 // The current filename.
-char   filename[1024];
+char   filename[string_capacity];
 
 // The lines are held in an array. The array frees removed lines for us.
 // The byte stream can be formed by joining this array with "\n".
@@ -178,8 +179,7 @@ void load_file(char *new_filename) {
     return;
   }
 
-  // TODO Check for a buffer overflow in the filename.
-  if (new_filename) strcpy(filename, new_filename);
+  if (new_filename) strlcpy(filename, new_filename, string_capacity);
   if (strlen(filename) == 0) {
     error("no current filename");
     return;
@@ -217,8 +217,7 @@ void load_file(char *new_filename) {
 // Save the buffer. If filename is NULL, save it to the current filename.
 // This returns the number of bytes written on success and -1 on error.
 int save_file(char *new_filename) {
-  // TODO Check for a buffer overflow on the name size (and in main).
-  if (new_filename) strcpy(filename, new_filename);
+  if (new_filename) strlcpy(filename, new_filename, string_capacity);
   if (strlen(filename) == 0) {
     error("no current filename");
     return -1;
@@ -599,7 +598,7 @@ int main(int argc, char **argv) {
     // The empty string indicates no filename has been given yet.
     filename[0] = '\0';
   } else {
-    strcpy(filename, argv[1]);
+    strlcpy(filename, argv[1], string_capacity);
     load_file(NULL);  // NULL --> use the global `filename`
 
     if (show_debug_output) {
