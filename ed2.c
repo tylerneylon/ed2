@@ -19,6 +19,7 @@
 
 // Standard includes.
 #include <assert.h>
+#include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -197,13 +198,13 @@ void load_file(char *new_filename) {
   // TODO Handle is_err != 0.
 
   size_t buffer_size = file_stats.st_size;
-  char * buffer = malloc(buffer_size + 1);  // + 1 for the final NULL character.
+  char * buffer = malloc(buffer_size + 1);  // + 1 for the final null character.
 
   is_err = fread(buffer,       // buffer ptr
                  1,            // item size
                  buffer_size,  // num items
                  f);           // stream
-  buffer[buffer_size] = '\0';  // Manually add a final NULL character.
+  buffer[buffer_size] = '\0';  // Manually add a final null character.
 
   // TODO Handle is_err != 0.
 
@@ -246,6 +247,8 @@ int save_file(char *new_filename) {
   fclose(f);
   return nbytes_written;
 }
+
+// Parsing functions.
 
 // This returns the number of characters scanned.
 int scan_number(char *command, int *num) {
@@ -298,6 +301,93 @@ int parse_range(char *command, int *start, int *end) {
 
   // The <int>,<int> and <int>, cases.
   return parsed;
+}
+
+// This expects to receive a string of the form "/regex/repl/", which it parses
+// and places into pattern and repl, allocating new space for the copies. The
+// return value is true iff the parse was successful. The caller only needs to
+// call free on pattern and repl when the return value is true.
+int parse_subst_params(char *command, char **pattern, char **repl) {
+  char *cursor = command;
+
+  if (*cursor != '/') {
+    error("expected '/' after s command");
+    return 0;  // 0 = did not work
+  }
+
+  // TODO Allow backslash-escaped characters in the pattern and repl.
+
+  // `pattern` will have offsets [p_start, p_start + p_len).
+  cursor++;  // Skip the current '/'.
+  int p_start = cursor - command;
+  while (*cursor && *cursor++ != '/');
+  if (*cursor == '\0') {
+    error("expected '/' to end regular expression");
+    return 0;  // 0 = did not work
+  }
+  int p_len = cursor - command - p_start;
+
+  // `repl` will have offsets [r_start, r_end).
+  cursor++;  // Skip the current '/'.
+  int r_start = cursor - command;
+  while (*cursor && *cursor++ != '/');
+  // Be chill if there's no trailing '/'.
+  int r_len = cursor - command - r_start;
+
+  // Allocate and copy our output strings.
+  pattern = calloc(p_len + 1, 1);  // + 1 for the final null, 1 = size
+  memcpy(pattern, command + p_start, p_len);
+  repl    = calloc(r_len + 1, 1);  // + 1 for the final null, 1 = size
+  memcpy(repl,    command + r_start, r_len);
+
+  return 1;  // 1 = did work
+}
+
+// This accepts *line_ptr = <prefix> <match> <suffix> and <repl>, where <match>
+// has offsets [start, end). It allocates a new string just long enough to hold
+// <prefix> <repl> <suffix>, frees *line_ptr, and reassigns *line_ptr to the new
+// string.
+void substring_repl(char **line_ptr, size_t start, size_t end, char *repl) {
+  // The + 1 here is for the terminating null.
+  size_t new_size = strlen(*line_ptr) - (start - end) + strlen(repl) + 1;
+  char *new_line = malloc(new_size);
+
+  // *line_ptr = <prefix> <match> <suffix>
+  memcpy(new_line, *line_ptr, start);             // new_line  = <prefix>
+  char *cursor = stpcpy(new_line + start, repl);  // new_line += <repl>
+  strcpy(cursor, *line_ptr + end);                // new_line += <suffix>
+
+  free(*line_ptr);
+  *line_ptr = new_line;
+}
+
+void substitute_on_lines(char *pattern, char *repl, int start, int end) {
+  regex_t compiled_re;
+  int compile_flags = 0;
+  int was_error = regcomp(&compiled_re, pattern, compile_flags);
+  if (was_error) {
+    // TODO Nicify this and all regex-returned error messages with regerror.
+    error("invalid regular expression");
+    return;
+  }
+  size_t max_matches = compiled_re.re_nsub + 1;  // + 1 for a full-pattern match
+  regmatch_t *matches = malloc(sizeof(regmatch_t) * max_matches);
+
+  int exec_flags = 0;
+  for (int i = start; i <= end; ++i) {
+    int errcode = regexec(&compiled_re, line_at(i - 1),
+                          max_matches, matches, exec_flags);
+    if (errcode) {
+      was_error = 1;
+      continue;
+    }
+    // TODO Respect \1 .. \9 as backreference replacements.
+    substring_repl(array__item_ptr(lines, i - 1),       // char ** to update
+                   matches[0].rm_so, matches[0].rm_eo,  // start, end offsets
+                   repl);                               // replacement
+  }
+  if (was_error) error("error while matching regular expression");
+  regfree(&compiled_re);
 }
 
 void print_line(int line_index, int do_add_number) {
@@ -486,6 +576,19 @@ void run_command(char *command) {
           }
         }
         load_file(new_filename);
+        return;
+      }
+
+    case 's':  // Make a substitution.
+      {
+        char *pattern;
+        char *repl;
+        int   did_work = parse_subst_params(++command, &pattern, &repl);
+        if  (!did_work) return;
+        save_state(backup_lines, &backup_current_line);
+        substitute_on_lines(pattern, repl, start, end);
+        free(pattern);
+        free(repl);
         return;
       }
   }
