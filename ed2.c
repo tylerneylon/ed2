@@ -320,7 +320,7 @@ int parse_subst_params(char *command, char **pattern, char **repl) {
   // `pattern` will have offsets [p_start, p_start + p_len).
   cursor++;  // Skip the current '/'.
   int p_start = cursor - command;
-  while (*cursor && *cursor++ != '/');
+  while (*cursor && *cursor != '/') cursor++;
   if (*cursor == '\0') {
     error("expected '/' to end regular expression");
     return 0;  // 0 = did not work
@@ -330,15 +330,15 @@ int parse_subst_params(char *command, char **pattern, char **repl) {
   // `repl` will have offsets [r_start, r_end).
   cursor++;  // Skip the current '/'.
   int r_start = cursor - command;
-  while (*cursor && *cursor++ != '/');
+  while (*cursor && *cursor != '/') cursor++;
   // Be chill if there's no trailing '/'.
   int r_len = cursor - command - r_start;
 
   // Allocate and copy our output strings.
-  pattern = calloc(p_len + 1, 1);  // + 1 for the final null, 1 = size
-  memcpy(pattern, command + p_start, p_len);
-  repl    = calloc(r_len + 1, 1);  // + 1 for the final null, 1 = size
-  memcpy(repl,    command + r_start, r_len);
+  *pattern = calloc(p_len + 1, 1);  // + 1 for the final null, 1 = size
+  memcpy(*pattern, command + p_start, p_len);
+  *repl    = calloc(r_len + 1, 1);  // + 1 for the final null, 1 = size
+  memcpy(*repl,    command + r_start, r_len);
 
   return 1;  // 1 = did work
 }
