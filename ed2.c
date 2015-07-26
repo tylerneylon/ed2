@@ -348,8 +348,13 @@ int parse_subst_params(char *command, char **pattern, char **repl) {
 // <prefix> <repl> <suffix>, frees *line_ptr, and reassigns *line_ptr to the new
 // string.
 void substring_repl(char **line_ptr, size_t start, size_t end, char *repl) {
+  assert(line_ptr && *line_ptr && repl);
+  int orig_line_len = strlen(*line_ptr);
+  assert(    0 <= start && start <  orig_line_len);
+  assert(start <= end   &&   end <= orig_line_len);
+
   // The + 1 here is for the terminating null.
-  size_t new_size = strlen(*line_ptr) - (start - end) + strlen(repl) + 1;
+  size_t new_size = orig_line_len - (start - end) + strlen(repl) + 1;
   char *new_line = malloc(new_size);
 
   // *line_ptr = <prefix> <match> <suffix>
