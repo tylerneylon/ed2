@@ -368,11 +368,15 @@ void substring_repl(char **line_ptr, size_t start, size_t end, char *repl) {
 
 void substitute_on_lines(char *pattern, char *repl, int start, int end) {
   regex_t compiled_re;
-  int compile_flags = 0;
-  int was_error = regcomp(&compiled_re, pattern, compile_flags);
-  if (was_error) {
-    // TODO Nicify this and all regex-returned error messages with regerror.
-    error("invalid regular expression");
+  int compile_flags = REG_EXTENDED;
+  char err_str[string_capacity];
+  err_str[0] = '\0';
+
+  int err_code = regcomp(&compiled_re, pattern, compile_flags);
+  if (err_code) {
+    regerror(err_code, &compiled_re, err_str, string_capacity);
+    error(err_str);
+    // TODO Do I need to call regfree here?
     return;
   }
   size_t max_matches = compiled_re.re_nsub + 1;  // + 1 for a full-pattern match
@@ -380,18 +384,23 @@ void substitute_on_lines(char *pattern, char *repl, int start, int end) {
 
   int exec_flags = 0;
   for (int i = start; i <= end; ++i) {
-    int errcode = regexec(&compiled_re, line_at(i - 1),
-                          max_matches, matches, exec_flags);
-    if (errcode) {
-      was_error = 1;
+    int err_code = regexec(&compiled_re, line_at(i - 1),
+                           max_matches, matches, exec_flags);
+    if (err_code) {
+      // We'll save only the first-seen error.
+      if (err_code != REG_NOMATCH && err_str[0] == '\0') {
+        regerror(err_code, &compiled_re, err_str, string_capacity);
+      }
       continue;
     }
+    // TODO Indicate if there were zero matches.
     // TODO Respect \1 .. \9 as backreference replacements.
     substring_repl(array__item_ptr(lines, i - 1),       // char ** to update
                    matches[0].rm_so, matches[0].rm_eo,  // start, end offsets
                    repl);                               // replacement
   }
-  if (was_error) error("error while matching regular expression");
+  if (err_str[0] != '\0') error(err_str);
+  free(matches);
   regfree(&compiled_re);
 }
 
