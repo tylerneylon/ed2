@@ -366,6 +366,61 @@ void substring_repl(char **line_ptr, size_t start, size_t end, char *repl) {
   *line_ptr = new_line;
 }
 
+// If `full_repl` is not NULL, this allocates a new string with the full
+// replacement string based on `repl` and the given matches, and places it in
+// `full_repl`. The caller is responsible for freeing that string. If
+// `full_repl` is NULL, this returns the number of bytes to allocate for
+// `full_repl`.
+size_t make_full_repl(char *repl, char *string, regmatch_t *matches,
+                      size_t max_matches, char **full_repl) {
+  size_t bytes_needed = 0;
+  if (full_repl) {
+    bytes_needed = make_full_repl(repl, string, matches, max_matches, NULL);
+    *full_repl = malloc(bytes_needed);
+  }
+  char *out = full_repl ? *full_repl : NULL;
+  size_t len;
+  for (char *cursor = repl; *cursor; ++cursor, bytes_needed += len) {
+    len = 1;
+    if (*cursor == '&') {
+      len = matches[0].rm_eo - matches[0].rm_so;
+      if (out) {
+        memcpy(out, string + matches[0].rm_so, len);
+        out += len;
+      }
+      continue;
+    }
+    if (*cursor != '\\') {
+      if (out) *out++ = *cursor;
+      continue;
+    }
+    cursor++;
+
+    // Handle the case that repl ends in a backslash.
+    if (*cursor == '\0') {
+      if (out) *out++ = '\\';
+      continue;
+    }
+    
+    // *cursor is now at an escaped character
+    int i = *cursor - '0';
+    if (1 <= i && i < max_matches) {
+      len = matches[i].rm_eo - matches[i].rm_so;
+      if (out) {
+        memcpy(out, string + matches[i].rm_so, len);
+        out += len;
+      }
+      continue;
+    }
+
+    // Treat *cursor as a character literal.
+    if (out) *out++ = *cursor;
+  }
+  if (out) *out = '\0';
+
+  return bytes_needed + 1;  // + 1 for the final null.
+}
+
 void substitute_on_lines(char *pattern, char *repl, int start, int end) {
   regex_t compiled_re;
   int compile_flags = REG_EXTENDED;
@@ -400,10 +455,12 @@ void substitute_on_lines(char *pattern, char *repl, int start, int end) {
       continue;
     }
     num_matches++;
-    // TODO Respect \1 .. \9 as backreference replacements.
+    char *full_repl;
+    make_full_repl(repl, line_at(i - 1), matches, max_matches, &full_repl);
     substring_repl(array__item_ptr(lines, i - 1),       // char ** to update
                    matches[0].rm_so, matches[0].rm_eo,  // start, end offsets
-                   repl);                               // replacement
+                   full_repl);                          // replacement
+    free(full_repl);
   }
   if (err_str[0] != '\0') error(err_str);
   else if (num_matches == 0) error("no match");
