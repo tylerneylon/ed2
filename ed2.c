@@ -376,7 +376,12 @@ void substitute_on_lines(char *pattern, char *repl, int start, int end) {
   if (err_code) {
     regerror(err_code, &compiled_re, err_str, string_capacity);
     error(err_str);
-    // TODO Do I need to call regfree here?
+    // The man page at regex(3) doesn't make it clear if we should call regfree
+    // when regcomp has an error. However, looking at the source:
+    // http://www.opensource.apple.com/source/gcc/gcc-5659/libiberty/regex.c
+    // it's clear that calling regfree here is at very least safe, and in my
+    // estimation is the right thing to do:
+    regfree(&compiled_re);
     return;
   }
   size_t max_matches = compiled_re.re_nsub + 1;  // + 1 for a full-pattern match
