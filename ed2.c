@@ -382,7 +382,8 @@ void substitute_on_lines(char *pattern, char *repl, int start, int end) {
   size_t max_matches = compiled_re.re_nsub + 1;  // + 1 for a full-pattern match
   regmatch_t *matches = malloc(sizeof(regmatch_t) * max_matches);
 
-  int exec_flags = 0;
+  int exec_flags  = 0;
+  int num_matches = 0;
   for (int i = start; i <= end; ++i) {
     int err_code = regexec(&compiled_re, line_at(i - 1),
                            max_matches, matches, exec_flags);
@@ -393,13 +394,14 @@ void substitute_on_lines(char *pattern, char *repl, int start, int end) {
       }
       continue;
     }
-    // TODO Indicate if there were zero matches.
+    num_matches++;
     // TODO Respect \1 .. \9 as backreference replacements.
     substring_repl(array__item_ptr(lines, i - 1),       // char ** to update
                    matches[0].rm_so, matches[0].rm_eo,  // start, end offsets
                    repl);                               // replacement
   }
   if (err_str[0] != '\0') error(err_str);
+  else if (num_matches == 0) error("no match");
   free(matches);
   regfree(&compiled_re);
 }
