@@ -56,7 +56,7 @@ regular expression engine.
 
 - [ ] `g` global regex command
 - [ ] `v` inVerse global regex command
-- [ ] `s` substitution
+- [x] `s` substitution
 
 ## Undo system
 
@@ -90,15 +90,14 @@ I was originally considering writing my own regex engine, but then I discovered
 it would be straightforward to use a standard POSIX-compliant one that somehow
 already exists on both my mac and ubuntu machines. My plan is to use that.
 
-For posterity, here are some of my notes from before I made that decision:
-
-*I may eventually pull the regex engine out of this repo - by which I mean that I
-may create a new repo that is the home of the regex engine, and leave a copy of
-it in here as a dependency. But for now, I plan to simply place the engine
-within this repo directly.*
-
-*I'm in the process of reading
+If anyone ever feels like writing their own regex engine, a good reference is
 [Russ Cox's article on Thompson
-NFAs](https://swtch.com/~rsc/regexp/regexp1.html). If this approach can work
-with `ed`'s regular expressions, then I'll use it. Otherwise I guess I'll have
-to think of something else!*
+NFAs](https://swtch.com/~rsc/regexp/regexp1.html).
+
+I noticed that doing a full-line substitution - that is, a command of the form
+`<range>s/re/subs/g` could get stuck in a loop if the `re` gets repeated empty
+matches. `ed` apparently notices this as I tested it with the command
+`1,10s/Z*/hi/g`, giving me the error condition `infinite substitution loop`.
+I could theoretically notice this by looking for an offset into a line that
+doesn't advance after a substitution is done, but I decided not to go into that
+much detail.

@@ -11,6 +11,8 @@
 // implemented.
 //
 
+// TODO Add a file-modified warning on the quit command.
+
 // Local library includes.
 #include "cstructs/cstructs.h"
 
@@ -49,6 +51,8 @@
 #define no_valid_backup -1
 
 #define string_capacity 1024
+
+#define max_matches 10
 
 ///////////////////////////////////////////////////////////////////////////
 // Globals.
@@ -307,15 +311,14 @@ int parse_range(char *command, int *start, int *end) {
 // and places into pattern and repl, allocating new space for the copies. The
 // return value is true iff the parse was successful. The caller only needs to
 // call free on pattern and repl when the return value is true.
-int parse_subst_params(char *command, char **pattern, char **repl) {
+int parse_subst_params(char *command, char **pattern, char **repl,
+                       int *is_global) {
   char *cursor = command;
 
   if (*cursor != '/') {
     error("expected '/' after s command");
     return 0;  // 0 = did not work
   }
-
-  // TODO Allow backslash-escaped characters in the pattern and repl.
 
   // `pattern` will have offsets [p_start, p_start + p_len).
   cursor++;  // Skip the current '/'.
@@ -333,6 +336,12 @@ int parse_subst_params(char *command, char **pattern, char **repl) {
   while (*cursor && *cursor != '/') cursor++;
   // Be chill if there's no trailing '/'.
   int r_len = cursor - command - r_start;
+
+  // Check for a global flag.
+  *is_global = 0;
+  if (*cursor && *(cursor + 1) == 'g') *is_global = 1;
+
+  // TODO Complain if there's an unrecognized suffix.
 
   // Allocate and copy our output strings.
   *pattern = calloc(p_len + 1, 1);  // + 1 for the final null, 1 = size
@@ -372,10 +381,10 @@ void substring_repl(char **line_ptr, size_t start, size_t end, char *repl) {
 // `full_repl` is NULL, this returns the number of bytes to allocate for
 // `full_repl`.
 size_t make_full_repl(char *repl, char *string, regmatch_t *matches,
-                      size_t max_matches, char **full_repl) {
+                      char **full_repl) {
   size_t bytes_needed = 0;
   if (full_repl) {
-    bytes_needed = make_full_repl(repl, string, matches, max_matches, NULL);
+    bytes_needed = make_full_repl(repl, string, matches, NULL);
     *full_repl = malloc(bytes_needed);
   }
   char *out = full_repl ? *full_repl : NULL;
@@ -421,7 +430,38 @@ size_t make_full_repl(char *repl, char *string, regmatch_t *matches,
   return bytes_needed + 1;  // + 1 for the final null.
 }
 
-void substitute_on_lines(char *pattern, char *repl, int start, int end) {
+// Make the given substitution on the line with user-oriented (1-indexed) index
+// `line_num`, starting at `offset` characters into the line. This returns the
+// next offset to use for other non-overlapping substitutions on the same line,
+// or -1 if there was an error. If `err_str` is the empty string, it is updated
+// with a user-friendly error string in case of an error.
+int substitute_on_line(regex_t *compiled_re, int line_num, int offset,
+                       char *repl, char *err_str) {
+  regmatch_t matches[max_matches];
+  int exec_flags = 0;
+  char *string = line_at(line_num - 1) + offset;
+  int err_code = regexec(compiled_re, string, max_matches, &matches[0],
+                         exec_flags);
+  if (err_code) {
+    // We'll save only the first-seen error.
+    if (err_code != REG_NOMATCH && err_str[0] == '\0') {
+      regerror(err_code, compiled_re, err_str, string_capacity);
+    }
+    return -1;
+  }
+  char *full_repl;
+  make_full_repl(repl, string, &matches[0], &full_repl);
+  substring_repl(array__item_ptr(lines, line_num - 1),  // char ** to update
+                 matches[0].rm_so + offset,             // start offset
+                 matches[0].rm_eo + offset,             //   end offset
+                 full_repl);                            // replacement
+  int new_offset = matches[0].rm_so + offset + strlen(full_repl);
+  free(full_repl);
+  return new_offset;
+}
+
+void substitute_on_lines(char *pattern, char *repl,
+                         int start, int end, int is_global) {
   regex_t compiled_re;
   int compile_flags = REG_EXTENDED;
   char err_str[string_capacity];
@@ -439,32 +479,19 @@ void substitute_on_lines(char *pattern, char *repl, int start, int end) {
     regfree(&compiled_re);
     return;
   }
-  size_t max_matches = compiled_re.re_nsub + 1;  // + 1 for a full-pattern match
-  regmatch_t *matches = malloc(sizeof(regmatch_t) * max_matches);
 
   int exec_flags  = 0;
-  int num_matches = 0;
+  int did_match_any = 0;
   for (int i = start; i <= end; ++i) {
-    int err_code = regexec(&compiled_re, line_at(i - 1),
-                           max_matches, matches, exec_flags);
-    if (err_code) {
-      // We'll save only the first-seen error.
-      if (err_code != REG_NOMATCH && err_str[0] == '\0') {
-        regerror(err_code, &compiled_re, err_str, string_capacity);
-      }
-      continue;
+    // j tracks the offset into the line for global matches; 0 = initial offset.
+    int j = substitute_on_line(&compiled_re, i, 0, repl, err_str);
+    if (j >= 0) did_match_any = 1;
+    while (is_global && j > 0) {
+      j = substitute_on_line(&compiled_re, i, j, repl, err_str);
     }
-    num_matches++;
-    char *full_repl;
-    make_full_repl(repl, line_at(i - 1), matches, max_matches, &full_repl);
-    substring_repl(array__item_ptr(lines, i - 1),       // char ** to update
-                   matches[0].rm_so, matches[0].rm_eo,  // start, end offsets
-                   full_repl);                          // replacement
-    free(full_repl);
   }
   if (err_str[0] != '\0') error(err_str);
-  else if (num_matches == 0) error("no match");
-  free(matches);
+  else if (!did_match_any) error("no match");
   regfree(&compiled_re);
 }
 
@@ -661,10 +688,12 @@ void run_command(char *command) {
       {
         char *pattern;
         char *repl;
-        int   did_work = parse_subst_params(++command, &pattern, &repl);
+        int   is_global;
+        int   did_work = parse_subst_params(++command, &pattern,
+                                            &repl, &is_global);
         if  (!did_work) return;
         save_state(backup_lines, &backup_current_line);
-        substitute_on_lines(pattern, repl, start, end);
+        substitute_on_lines(pattern, repl, start, end, is_global);
         free(pattern);
         free(repl);
         return;
