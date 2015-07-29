@@ -101,3 +101,83 @@ matches. `ed` apparently notices this as I tested it with the command
 I could theoretically notice this by looking for an offset into a line that
 doesn't advance after a substitution is done, but I decided not to go into that
 much detail.
+
+## Global command execution
+
+There are few tricky bits to executing global commands.
+
+### Which lines to execute on
+
+This is not completely straightforward. Consider the command:
+
+    g/abc/m0\
+    t\
+    1
+
+This will move every line containing `abc` to the top of the file, then make a
+copy of that line. One method of choosing lines to execute on would be to keep
+searching forward for the given pattern. In this case, a naive implementation
+would be stuck in a loop noticing the new copies of `abc`.
+
+Instead of continuously searching forward, one could make a list of matching
+line numbers and execute on those. However, the line numbers could change as a
+result of commands executed. This could be addressed by keeping track of changes
+to the line number list, though I'm not sure how complex that updating process
+would need to be.
+
+Through some experimentation, I see that `ed` bails on certain kinds of global
+commands. It seems that if an execution moves or alters a matching line before
+that matching line is executed, then that matching line is never executed. For
+example, running this:
+
+    g/abc/.=\
+    %s/abc/abcd/g
+
+will only execute on a single line even if there are multiple matches.
+Being able to bail on changed lines makes life easier for me.
+
+One idea is to replace each line in `lines` with a struct that also contains an
+`is_marked` bool.
+
+A simpler-to-code idea is to keep a Map of the `char *` pointers for the
+matching lines.
+We can also keep a `next_line` global that is updated by non-global commands so
+that we know where to continue searching from after executing a command
+sequence. The advantage is that this runs quickly. The disadvantage is that it's
+a bit of work in several places to keep `next_line` correct, but I don't see a
+way around that.
+
+To be more explicit, this is the process I have in mind:
+
+1. Do a first pass search of all lines, storing matches in a Map where the
+   `char *`s are used as keys. The Map is used as a set; the values aren't
+   important, just the keys. Set `next_line` to 0.
+2. Iterate over lines starting at `next_line`, stopping whenever we see a
+   `char *` that's in the Map.
+3. When we recognize a `char *`, set `current_line` and `next_line`,
+   and then re-parse the command
+   sequence one at a time to execute all of them on that line. Afterwards, go
+   back to `next_line` and keep iterating as in step 2 (aka goto step 2).
+
+### Treating . as a variable
+
+An easy mistake would be to parse a range string given after the regular
+expression and
+immediately convert it into a fixed range. The desired behavior is to treat `.`
+as a variable that's updated with each execution. For example:
+
+    g/abc/.=
+
+is expected to print out every line number with a match, as opposed to printing
+the current line each time.
+
+Code-wise, I plan to do this by re-parsing the command list for each execution.
+I can set `current_line` before each execution so the range works as desired.
+
+### Accepting input
+
+The global command is the only one that treats trailing
+backslashes as continuations. I propose adding an `is_global`
+function which can quickly check a line so the code can know at
+a high level whether or not to treat trailing backslashes as
+continuations.
