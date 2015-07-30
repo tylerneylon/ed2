@@ -794,6 +794,40 @@ void run_command(char *command) {
   //  * Design carefully about treating the command suffix.
 }
 
+// Functions to help with the global command.
+
+// Returns 1 iff the given command is the first line of a global command.
+int is_global_command(char *command) {
+  assert(command);
+  int start, end;
+  command += parse_range(command, &start, &end);
+  return *command == 'g';
+}
+
+// Returns 1 iff the given line ends with a backslash-escaped newline,
+// indicating that there are more commands to the sequence.
+int does_end_in_continuation(char *line) {
+  assert(line);
+  int n = strlen(line);
+  return n ? (line[n - 1] == '\\') : 0;
+}
+
+void read_rest_of_global_command(char **line) {
+  *line = strdup(*line);  // Take ownership of the string's memory.
+  while (does_end_in_continuation(*line)) {
+    char *new_part = readline("");
+
+    // Append new_part to *line; the + 2 is for the newline and the null.
+    size_t new_size = strlen(*line) + strlen(new_part) + 2;
+    char * new_line = calloc(new_size, 1);  // count, size
+    char * cursor   = new_line;
+    cursor = stpcpy(cursor, *line);
+    cursor = stpcpy(cursor, "\n");
+    cursor = stpcpy(cursor, new_part);
+    free(*line);
+    *line = new_line;
+  }
+}
 
 ///////////////////////////////////////////////////////////////////////////
 // Main.
@@ -820,8 +854,12 @@ int main(int argc, char **argv) {
 
   // Enter our read-eval-print loop (REPL).
   while (1) {
+    // TODO Verify that I don't need to free the return value of readline.
+    //      Either add a free call or a comment to clarify.
     char *line = readline("");
+    if (is_global_command(line)) read_rest_of_global_command(&line);
     run_command(line);
+    if (is_global_command(line)) free(line);
   }
 
   return 0;
