@@ -829,6 +829,47 @@ void read_rest_of_global_command(char **line) {
   }
 }
 
+void run_global_command(char *command) {
+  // Parse the command.
+  assert(command);
+  int start, end;
+  command += parse_range(command, &start, &end);
+  assert(*command++ == 'g');
+
+  // Parse the regular expression.
+  if (*command != '/') {
+    error("expected '/' to start regular expression");
+    return;
+  }
+  command++;
+  char *regex = command;  // This memory remains owned by the caller.
+  while (*command && *command != '/') command++;
+  if (*command != '/') {
+    error("expected '/' to end regular expression");
+    return;
+  }
+  *command = '\0';  // This is the null terminator for the regex string.
+  command++;
+
+  // Make a list out of the command sequence.
+  // The commands list holds weak pointers into `command`; this memory
+  // will be freed by the caller after this function completes.
+  Array commands = array__new(4, sizeof(char *));
+  char *sub_cmd;
+  while ((sub_cmd = strsep(&command, "\n"))) {
+    array__new_val(commands, char *) = sub_cmd;
+  }
+  // Remove the trailing slashes.
+  array__for(char **, sub_cmd, commands, i) {
+    if (i == (commands->count - 1)) continue;  // Skip it; no trailing slash.
+    assert(strlen(*sub_cmd) >= 1);
+    (*sub_cmd)[strlen(*sub_cmd) - 1] = '\0';
+  }
+
+  // TODO Run it.
+}
+
+
 ///////////////////////////////////////////////////////////////////////////
 // Main.
 ///////////////////////////////////////////////////////////////////////////
@@ -857,9 +898,13 @@ int main(int argc, char **argv) {
     // TODO Verify that I don't need to free the return value of readline.
     //      Either add a free call or a comment to clarify.
     char *line = readline("");
-    if (is_global_command(line)) read_rest_of_global_command(&line);
-    run_command(line);
-    if (is_global_command(line)) free(line);
+    if (is_global_command(line)) {
+      read_rest_of_global_command(&line);
+      run_global_command(line);
+      free(line);
+    } else {
+      run_command(line);
+    }
   }
 
   return 0;
