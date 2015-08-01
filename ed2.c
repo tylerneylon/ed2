@@ -54,6 +54,7 @@
 
 #define max_matches 10
 
+
 ///////////////////////////////////////////////////////////////////////////
 // Globals.
 ///////////////////////////////////////////////////////////////////////////
@@ -68,8 +69,12 @@ char   filename[string_capacity];
 // The byte stream can be formed by joining this array with "\n".
 Array  lines = NULL;
 
-int    current_line;
+int    current_line;  // This is 1-indexed.
 int    is_modified;  // This is set in save_state; it's called for edits.
+
+// `next_line` is used to help run global commands. Edit commands keep it
+// updated when lines before it are inserted or deleted.
+int    next_line = 20;  // Like current_line, this is 1-indexed.
 
 // Data used for undos.
 Array  backup_lines = NULL;
@@ -363,7 +368,7 @@ void substring_repl(char **line_ptr, size_t start, size_t end, char *repl) {
   assert(start <= end   &&   end <= orig_line_len);
 
   // The + 1 here is for the terminating null.
-  size_t new_size = orig_line_len - (start - end) + strlen(repl) + 1;
+  size_t new_size = orig_line_len - (end - start) + strlen(repl) + 1;
   char *new_line = malloc(new_size);
 
   // *line_ptr = <prefix> <match> <suffix>
@@ -533,6 +538,7 @@ void insert_subarr_into_arr(Array sub, Array arr, int index) {
 }
 
 // Enters line-reading mode and inserts the lines at the given 0-based index.
+// This means exactly the first `index` lines are left untouched.
 void read_and_insert_lines_at(int index) {
   // Silently clamp the index to legal values.
   if (index < 0)            index = 0;
@@ -541,6 +547,7 @@ void read_and_insert_lines_at(int index) {
   read_in_lines(new_lines);
   insert_subarr_into_arr(new_lines, lines, index);
   current_line += new_lines->count;
+  if ((next_line - 1) >= index) next_line += new_lines->count;
   array__delete(new_lines);
 }
 
@@ -575,11 +582,12 @@ void delete_range(int start, int end) {
   for (int n = end - start + 1; n > 0; --n) {
     array__remove_item(lines, array__item_ptr(lines, start - 1));
   }
+  if (start <= next_line && next_line <= end) next_line = start;
+  if (next_line > end) next_line -= (end - start + 1);
   current_line = (start <= last_line() ? start : last_line());
 }
 
 void join_range(int start, int end, int is_default_range) {
-
   // 1. Establish and check the validity of the range.
   if (is_default_range) {
     start = current_line;
@@ -603,10 +611,13 @@ void join_range(int start, int end, int is_default_range) {
     array__remove_item(lines, array__item_ptr(lines, i - 1));
   }
 
+  if (start <= next_line && next_line <= end) next_line = start;
+  if (next_line > end) next_line -= (end - start);
+
   current_line = start;  // The current line is the newly joined line.
 }
 
-// Moves the range [start, end] to after the text currently at line dst.
+// Moves the range [start, end] to be after the text currently at line dst.
 void move_lines(int start, int end, int dst) {
   // TODO Check that range, dst, and the pair are all valid.
 
@@ -618,12 +629,13 @@ void move_lines(int start, int end, int dst) {
 
   // 2. Append the deep copy after dst.
   insert_subarr_into_arr(moving_lines, lines, dst);
+  if ((next_line - 1) >= dst) next_line += moving_lines->count;
   array__delete(moving_lines);
 
   // 3. Remove the original range.
   int range_len = end - start + 1;
   int offset    = (dst > end ? 0 : range_len);
-  delete_range(start + offset, end + offset);
+  delete_range(start + offset, end + offset);  // This updates next_line.
 
   current_line = dst + offset;
 }
@@ -829,7 +841,24 @@ void read_rest_of_global_command(char **line) {
   }
 }
 
-void run_global_command(char *command) {
+// `commands` is an Array with `char *` items; each is a single-line command
+// that can be executed with a call to run_command.
+void run_global_command(int start, int end, char *regex, Array commands) {
+  // We run the command using two passes:
+  // 1. Build a Map-based set of lines in the range that match `regex`, and
+  // 2. Use the `next_line` global to go through the file once, running
+  //    `commands` on each matching line. `next_line` is kept up to date even
+  //    when other commands edit the buffer.
+
+  // Pass 1: Build the set of matching lines.
+
+  // Pass 2: Run `commands` on each matching line.
+
+  // TODO HERE
+
+}
+
+void parse_and_run_global_command(char *command) {
   // Parse the command.
   assert(command);
   int start, end;
@@ -866,7 +895,7 @@ void run_global_command(char *command) {
     (*sub_cmd)[strlen(*sub_cmd) - 1] = '\0';
   }
 
-  // TODO Run it.
+  run_global_command(start, end, regex, commands);
 }
 
 
@@ -900,7 +929,7 @@ int main(int argc, char **argv) {
     char *line = readline("");
     if (is_global_command(line)) {
       read_rest_of_global_command(&line);
-      run_global_command(line);
+      parse_and_run_global_command(line);
       free(line);
     } else {
       run_command(line);
