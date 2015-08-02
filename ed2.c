@@ -485,7 +485,6 @@ void substitute_on_lines(char *pattern, char *repl,
     return;
   }
 
-  int exec_flags  = 0;
   int did_match_any = 0;
   for (int i = start; i <= end; ++i) {
     // j tracks the offset into the line for global matches; 0 = initial offset.
@@ -808,6 +807,16 @@ void run_command(char *command) {
 
 // Functions to help with the global command.
 
+// Functions for the hash map used for global commands.
+
+int hash_line(void *line_vptr) {
+  return (int)(intptr_t)(line_vptr);
+}
+
+int eq_lines(void *line1_vptr, void *line2_vptr) {
+  return line1_vptr == line2_vptr;
+}
+
 // Returns 1 iff the given command is the first line of a global command.
 int is_global_command(char *command) {
   assert(command);
@@ -843,7 +852,10 @@ void read_rest_of_global_command(char **line) {
 
 // `commands` is an Array with `char *` items; each is a single-line command
 // that can be executed with a call to run_command.
-void run_global_command(int start, int end, char *regex, Array commands) {
+void run_global_command(int start, int end, char *pattern, Array commands) {
+  dbg_printf("%s(start=%d, end=%d, pattern='%s', <commands>)\n",
+             __FUNCTION__, start, end, pattern);
+
   // We run the command using two passes:
   // 1. Build a Map-based set of lines in the range that match `regex`, and
   // 2. Use the `next_line` global to go through the file once, running
@@ -852,17 +864,60 @@ void run_global_command(int start, int end, char *regex, Array commands) {
 
   // Pass 1: Build the set of matching lines.
 
+  // 1A: Compile the regex pattern.
+  regex_t compiled_re;
+  int compile_flags = REG_EXTENDED;
+  char err_str[string_capacity];
+  err_str[0] = '\0';
+  int err_code = regcomp(&compiled_re, pattern, compile_flags);
+  if (err_code) {
+    regerror(err_code, &compiled_re, err_str, string_capacity);
+    error(err_str);
+    // We need to call `regfree`; see the comment on the 1st use of `regfree`.
+    regfree(&compiled_re);
+    return;
+  }
+
+  // 1B: Find all currently matching lines.
+  Map matching_lines = map__new(hash_line, eq_lines);
+  // TODO Delete the map when we're done with it, even on an error.
+  int exec_flags  = 0;
+  for (int i = start; i <= end; ++i) {
+    regmatch_t matches[max_matches];
+    int err_code = regexec(&compiled_re, line_at(i - 1), max_matches,
+                           &matches[0], exec_flags);
+    if (err_code == 0) {
+      map__set(matching_lines, line_at(i - 1), 0);
+      // TEMP
+      printf("Matched the line '%s'\n", line_at(i - 1));
+    }
+    if (err_code) {
+      // TODO Save and report any true errors.
+      if (err_code != REG_NOMATCH && err_str[0] == '\0') {
+        // TODO Follow up on this.
+        regerror(err_code, &compiled_re, err_str, string_capacity);
+      }
+    }
+  }
+
   // Pass 2: Run `commands` on each matching line.
 
   // TODO HERE
 
+  // TODO If there is an error during a command sequence execution, immediately
+  //      stop the entire global command.
 }
 
 void parse_and_run_global_command(char *command) {
   // Parse the command.
   assert(command);
   int start, end;
-  command += parse_range(command, &start, &end);
+  int num_range_chars = parse_range(command, &start, &end);
+  command += num_range_chars;
+  if (num_range_chars == 0) {
+    start = 1;
+    end   = last_line();
+  }
   assert(*command++ == 'g');
 
   // Parse the regular expression.
