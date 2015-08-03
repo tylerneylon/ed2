@@ -75,6 +75,7 @@ int    is_modified;  // This is set in save_state; it's called for edits.
 // `next_line` is used to help run global commands. Edit commands keep it
 // updated when lines before it are inserted or deleted.
 int    next_line = 20;  // Like current_line, this is 1-indexed.
+int    is_running_global = 0;  // This is 1 if a global command is running.
 
 // Data used for undos.
 Array  backup_lines = NULL;
@@ -572,6 +573,8 @@ int err_if_bad_current_line(int new_current_line) {
 // Print out the given lines; useful for the p or empty commands.
 // This simply produces an error if the range is invalid.
 void print_range(int start, int end, int do_number_lines) {
+  dbg_printf("%s(%d, %d, do_number_lines=%d)\n", __FUNCTION__,
+             start, end, do_number_lines);
   if (err_if_bad_range(start, end)) return;
   for (int i = start; i <= end; ++i) print_line(i, do_number_lines);
 }
@@ -722,7 +725,7 @@ void run_command(char *command) {
 
     case '\0': // If no range was given, advence a line. Print current_line.
       {
-        if (is_default_range) {
+        if (is_default_range && !is_running_global) {
           if (err_if_bad_current_line(current_line + 1)) return;
         }
         print_range(current_line, current_line, 0);  // 0 = don't add line num
@@ -853,6 +856,7 @@ void read_rest_of_global_command(char **line) {
 // `commands` is an Array with `char *` items; each is a single-line command
 // that can be executed with a call to run_command.
 void run_global_command(int start, int end, char *pattern, Array commands) {
+  is_running_global = 1;
   dbg_printf("%s(start=%d, end=%d, pattern='%s', <commands>)\n",
              __FUNCTION__, start, end, pattern);
 
@@ -861,6 +865,10 @@ void run_global_command(int start, int end, char *pattern, Array commands) {
   // 2. Use the `next_line` global to go through the file once, running
   //    `commands` on each matching line. `next_line` is kept up to date even
   //    when other commands edit the buffer.
+
+  // Declare variables early if they're used in the finally goto-target block.
+
+  Map matched_lines = NULL;
 
   // Pass 1: Build the set of matching lines.
 
@@ -873,39 +881,45 @@ void run_global_command(int start, int end, char *pattern, Array commands) {
   if (err_code) {
     regerror(err_code, &compiled_re, err_str, string_capacity);
     error(err_str);
-    // We need to call `regfree`; see the comment on the 1st use of `regfree`.
-    regfree(&compiled_re);
-    return;
+    goto finally;
   }
 
   // 1B: Find all currently matching lines.
-  Map matching_lines = map__new(hash_line, eq_lines);
-  // TODO Delete the map when we're done with it, even on an error.
+  matched_lines = map__new(hash_line, eq_lines);
   int exec_flags  = 0;
   for (int i = start; i <= end; ++i) {
     regmatch_t matches[max_matches];
     int err_code = regexec(&compiled_re, line_at(i - 1), max_matches,
                            &matches[0], exec_flags);
     if (err_code == 0) {
-      map__set(matching_lines, line_at(i - 1), 0);
-      // TEMP
-      printf("Matched the line '%s'\n", line_at(i - 1));
-    }
-    if (err_code) {
-      // TODO Save and report any true errors.
-      if (err_code != REG_NOMATCH && err_str[0] == '\0') {
-        // TODO Follow up on this.
-        regerror(err_code, &compiled_re, err_str, string_capacity);
-      }
+      map__set(matched_lines, line_at(i - 1), 0);
+    } else if (err_code != REG_NOMATCH && err_str[0] == '\0') {
+      regerror(err_code, &compiled_re, err_str, string_capacity);
+      error(err_str);
+      goto finally;
     }
   }
 
   // Pass 2: Run `commands` on each matching line.
 
-  // TODO HERE
+  for (next_line = 1; next_line <= last_line();) {
+    if (!map__get(matched_lines, line_at(next_line - 1))) {
+      next_line++;  // Skip to the next line if this one doesn't match.
+      continue;
+    }
+    current_line = next_line;
+    next_line++;
+    array__for(char **, sub_cmd, commands, i) {
+      run_command(*sub_cmd);
+    }
+  }
 
-  // TODO If there is an error during a command sequence execution, immediately
-  //      stop the entire global command.
+finally:
+  // It appears correct to call regfree even if regcomp fails; see the comment
+  // at the first use of regfree for more details.
+  regfree(&compiled_re);
+  if (matched_lines != NULL) map__delete(matched_lines);
+  is_running_global = 0;
 }
 
 void parse_and_run_global_command(char *command) {
