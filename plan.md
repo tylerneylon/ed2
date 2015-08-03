@@ -54,7 +54,7 @@ regular expression engine.
 
 ### Regex-based commands
 
-- [ ] `g` global regex command
+- [x] `g` global regex command
 - [ ] `v` inVerse global regex command
 - [x] `s` substitution
 

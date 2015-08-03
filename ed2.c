@@ -261,12 +261,11 @@ int save_file(char *new_filename) {
 // Parsing functions.
 
 // This returns the number of characters scanned.
-int scan_number(char *command, int *num) {
+int scan_line_number(char *command, int *num) {
   int num_chars_parsed;
   int num_items_parsed = sscanf(command, "%d%n", num, &num_chars_parsed);
-  return (num_items_parsed ? num_chars_parsed : 0);
+  return (num_items_parsed > 0 ? num_chars_parsed : 0);
 }
-// TODO Consider using scan_number from parse_range.
 
 // This parses out any initial line range from a command, returning the number
 // of characters parsed. If a range is successfully parsed, then current_line is
@@ -293,21 +292,20 @@ int parse_range(char *command, int *start, int *end) {
     return 1;  // Parsed 1 character.
   }
 
-  int num_chars_parsed;
-  int num_parsed = sscanf(command, "%d%n", start, &num_chars_parsed);
-  parsed += num_chars_parsed * (num_parsed > 0);
+  int num_chars_parsed = scan_line_number(command, start);
+  parsed += num_chars_parsed;
 
   // The <no range> case.
-  if (num_parsed == 0) return parsed;
+  if (num_chars_parsed == 0) return parsed;
 
   // The <int> case.
   current_line = *end = *start;
   if (*(command + parsed) != ',') return parsed;
 
   parsed++;  // Skip over the ',' character.
-  num_parsed = sscanf(command + parsed, "%d%n", end, &num_chars_parsed);
-  parsed += num_chars_parsed * (num_parsed > 0);
-  if (num_parsed > 0) current_line = *end;
+  num_chars_parsed = scan_line_number(command + parsed, end);
+  parsed += num_chars_parsed;
+  if (num_chars_parsed > 0) current_line = *end;
 
   // The <int>,<int> and <int>, cases.
   return parsed;
@@ -660,7 +658,7 @@ void run_command(char *command) {
       {
         save_state(backup_lines, &backup_current_line);
         int dst_line;
-        int num_chars_parsed = scan_number(command + 1, &dst_line);
+        int num_chars_parsed = scan_line_number(command + 1, &dst_line);
         if (num_chars_parsed == 0) dst_line = current_line;
         move_lines(start, end, dst_line);
         return;
@@ -852,6 +850,10 @@ void read_rest_of_global_command(char **line) {
     *line = new_line;
   }
 }
+
+// TODO
+//  * Stop at the first error.
+//  * Split the global-focused functions into their own file.
 
 // `commands` is an Array with `char *` items; each is a single-line command
 // that can be executed with a call to run_command.
