@@ -11,10 +11,15 @@
 // implemented.
 //
 
-// TODO Add a file-modified warning on the quit command.
+// TODO
+//  * Add a file-modified warning on the quit command.
+//  * Split this file into internal and public functions (and main).
 
-// Local library includes.
-#include "cstructs/cstructs.h"
+// Header for this file.
+#include "ed2.h"
+
+// Local includes.
+#include "global.h"
 
 // Library includes.
 #include <readline/readline.h>
@@ -29,30 +34,15 @@
 
 
 ///////////////////////////////////////////////////////////////////////////
-// Debug.
-///////////////////////////////////////////////////////////////////////////
-
-#define show_debug_output 0
-
-#if show_debug_output
-#define dbg_printf(...) printf(__VA_ARGS__)
-#else
-#define dbg_printf(...)
-#endif
-
-
-///////////////////////////////////////////////////////////////////////////
 // Constants.
 ///////////////////////////////////////////////////////////////////////////
 
 // TODO Define error strings here.
 
+// TODO Consistentify comment style.
+
 // The user can't undo when backup_current_line == no_valid_backup.
 #define no_valid_backup -1
-
-#define string_capacity 1024
-
-#define max_matches 10
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -74,7 +64,7 @@ int    is_modified;  // This is set in save_state; it's called for edits.
 
 // `next_line` is used to help run global commands. Edit commands keep it
 // updated when lines before it are inserted or deleted.
-int    next_line = 20;  // Like current_line, this is 1-indexed.
+int    next_line = 0;  // Like current_line, this is 1-indexed.
 int    is_running_global = 0;  // This is 1 if a global command is running.
 
 // Data used for undos.
@@ -83,19 +73,10 @@ int    backup_current_line;
 
 
 ///////////////////////////////////////////////////////////////////////////
-// Macros.
-///////////////////////////////////////////////////////////////////////////
-
-// This can be used for both setting and getting.
-// Don't forget to free the old value if setting.
-#define line_at(index) array__item_val(lines, index, char *)
-
-
-///////////////////////////////////////////////////////////////////////////
 // Internal functions.
 ///////////////////////////////////////////////////////////////////////////
 
-void error(const char *err_str) {
+void ed2__error(const char *err_str) {
   strcpy(last_error, err_str);
   printf("?\n");
   if (do_print_errors) printf("%s\n", last_error);
@@ -153,15 +134,6 @@ void load_state_from_backup() {
   current_line = backup_current_line;
 }
 
-int last_line() {
-  // If the last entry in `lines` is the empty string, then the file ends in a
-  // newline; pay attention to this to avoid an off-by-one error.
-  if (*line_at(lines->count - 1) == '\0') {
-    return lines->count - 1;
-  }
-  return lines->count;
-}
-
 // Separate a raw buffer into a sequence of indexed lines.
 // Destroys the buffer in the process.
 void find_lines(char *buffer) {
@@ -178,7 +150,7 @@ void find_lines(char *buffer) {
     array__new_val(lines, char *) = strdup(line);
   }
 
-  current_line = last_line();
+  current_line = last_line;
 }
 
 // Load a file. Use the global `filename` unless `new_filename` is non-NULL, in
@@ -186,13 +158,13 @@ void find_lines(char *buffer) {
 void load_file(char *new_filename) {
 
   if (is_modified) {
-    error("warning: file modified");
+    ed2__error("warning: file modified");
     return;
   }
 
   if (new_filename) strlcpy(filename, new_filename, string_capacity);
   if (strlen(filename) == 0) {
-    error("no current filename");
+    ed2__error("no current filename");
     return;
   }
 
@@ -230,7 +202,7 @@ void load_file(char *new_filename) {
 int save_file(char *new_filename) {
   if (new_filename) strlcpy(filename, new_filename, string_capacity);
   if (strlen(filename) == 0) {
-    error("no current filename");
+    ed2__error("no current filename");
     return -1;
   }
 
@@ -251,7 +223,7 @@ int save_file(char *new_filename) {
     nbytes_written += nbytes_this_line;
   }
 
-  if (was_error) error("error while writing");
+  if (was_error) ed2__error("error while writing");
 
   is_modified = 0;
   fclose(f);
@@ -270,7 +242,7 @@ int scan_line_number(char *command, int *num) {
 // This parses out any initial line range from a command, returning the number
 // of characters parsed. If a range is successfully parsed, then current_line is
 // updated to the end of this range.
-int parse_range(char *command, int *start, int *end) {
+int ed2__parse_range(char *command, int *start, int *end) {
 
   // For now, we'll parse ranges of the following types:
   //  * <no range>
@@ -288,7 +260,7 @@ int parse_range(char *command, int *start, int *end) {
   // The ',' and '%' cases.
   if (*command == ',' || *command == '%') {
     *start = 1;
-    current_line = *end = last_line();
+    current_line = *end = last_line;
     return 1;  // Parsed 1 character.
   }
 
@@ -320,7 +292,7 @@ int parse_subst_params(char *command, char **pattern, char **repl,
   char *cursor = command;
 
   if (*cursor != '/') {
-    error("expected '/' after s command");
+    ed2__error("expected '/' after s command");
     return 0;  // 0 = did not work
   }
 
@@ -329,7 +301,7 @@ int parse_subst_params(char *command, char **pattern, char **repl,
   int p_start = cursor - command;
   while (*cursor && *cursor != '/') cursor++;
   if (*cursor == '\0') {
-    error("expected '/' to end regular expression");
+    ed2__error("expected '/' to end regular expression");
     return 0;  // 0 = did not work
   }
   int p_len = cursor - command - p_start;
@@ -474,7 +446,7 @@ void substitute_on_lines(char *pattern, char *repl,
   int err_code = regcomp(&compiled_re, pattern, compile_flags);
   if (err_code) {
     regerror(err_code, &compiled_re, err_str, string_capacity);
-    error(err_str);
+    ed2__error(err_str);
     // The man page at regex(3) doesn't make it clear if we should call regfree
     // when regcomp has an error. However, looking at the source:
     // http://www.opensource.apple.com/source/gcc/gcc-5659/libiberty/regex.c
@@ -493,8 +465,8 @@ void substitute_on_lines(char *pattern, char *repl,
       j = substitute_on_line(&compiled_re, i, j, repl, err_str);
     }
   }
-  if (err_str[0] != '\0') error(err_str);
-  else if (!did_match_any) error("no match");
+  if (err_str[0] != '\0') ed2__error(err_str);
+  else if (!did_match_any) ed2__error("no match");
   regfree(&compiled_re);
 }
 
@@ -551,8 +523,8 @@ void read_and_insert_lines_at(int index) {
 
 // Returns true iff the range is bad.
 int err_if_bad_range(int start, int end) {
-  if (start < 1 || end > last_line()) {
-    error("invalid address");
+  if (start < 1 || end > last_line) {
+    ed2__error("invalid address");
     return 1;
   }
   return 0;
@@ -560,8 +532,8 @@ int err_if_bad_range(int start, int end) {
 
 // Returns true iff the new current line is bad.
 int err_if_bad_current_line(int new_current_line) {
-  if (new_current_line < 1 || new_current_line > last_line()) {
-    error("invalid address");  // TODO Drop magic strings.
+  if (new_current_line < 1 || new_current_line > last_line) {
+    ed2__error("invalid address");  // TODO Drop magic strings.
     return 1;
   }
   current_line = new_current_line;
@@ -584,7 +556,7 @@ void delete_range(int start, int end) {
   }
   if (start <= next_line && next_line <= end) next_line = start;
   if (next_line > end) next_line -= (end - start + 1);
-  current_line = (start <= last_line() ? start : last_line());
+  current_line = (start <= last_line ? start : last_line);
 }
 
 void join_range(int start, int end, int is_default_range) {
@@ -640,12 +612,12 @@ void move_lines(int start, int end, int dst) {
   current_line = dst + offset;
 }
 
-void run_command(char *command) {
+void ed2__run_command(char *command) {
 
   dbg_printf("run command: \"%s\"\n", command);
 
   int start, end;
-  int num_range_chars = parse_range(command, &start, &end);
+  int num_range_chars = ed2__parse_range(command, &start, &end);
   command += num_range_chars;
   dbg_printf("After parse_range, s=%d e=%d c=\"%s\"\n", start, end, command);
   int is_default_range = (num_range_chars == 0);
@@ -669,7 +641,7 @@ void run_command(char *command) {
         char *new_filename = NULL;  // NULL makes save_file use the global name.
         if (*++command != '\0') {
           if (*command != ' ') {
-            error("unexpected command suffix");
+            ed2__error("unexpected command suffix");
           } else {
             new_filename = ++command;
           }
@@ -687,7 +659,7 @@ void run_command(char *command) {
         char *new_filename = NULL;  // NULL makes load_file use the global name.
         if (*++command != '\0') {
           if (*command != ' ') {
-            error("unexpected command suffix");
+            ed2__error("unexpected command suffix");
           } else {
             new_filename = ++command;
           }
@@ -731,7 +703,7 @@ void run_command(char *command) {
       }
 
     case '=':  // Print the range's end line num, or last line num on no range.
-      printf("%d\n", (is_default_range ? last_line() : end));
+      printf("%d\n", (is_default_range ? last_line : end));
       break;
 
     case 'n':  // Print lines with added line numbers.
@@ -768,9 +740,9 @@ void run_command(char *command) {
     case 'c':  // Change effective range lines into newly input lines.
       {
         save_state(backup_lines, &backup_current_line);
-        int is_ending_range = (end == last_line());
+        int is_ending_range = (end == last_line);
         delete_range(start, end);
-        int insert_point = is_ending_range ? last_line() : current_line - 1;
+        int insert_point = is_ending_range ? last_line : current_line - 1;
         read_and_insert_lines_at(insert_point);
         break;
       }
@@ -799,174 +771,11 @@ void run_command(char *command) {
       }
 
     default:  // If we get here, the command wasn't recognized.
-      error("unknown command");
+      ed2__error("unknown command");
   }
 
   // TODO Clean up this command parsing bit.
   //  * Design carefully about treating the command suffix.
-}
-
-// Functions to help with the global command.
-
-// Functions for the hash map used for global commands.
-
-int hash_line(void *line_vptr) {
-  return (int)(intptr_t)(line_vptr);
-}
-
-int eq_lines(void *line1_vptr, void *line2_vptr) {
-  return line1_vptr == line2_vptr;
-}
-
-// Returns 1 iff the given command is the first line of a global command.
-int is_global_command(char *command) {
-  assert(command);
-  int start, end;
-  command += parse_range(command, &start, &end);
-  return *command == 'g';
-}
-
-// Returns 1 iff the given line ends with a backslash-escaped newline,
-// indicating that there are more commands to the sequence.
-int does_end_in_continuation(char *line) {
-  assert(line);
-  int n = strlen(line);
-  return n ? (line[n - 1] == '\\') : 0;
-}
-
-void read_rest_of_global_command(char **line) {
-  *line = strdup(*line);  // Take ownership of the string's memory.
-  while (does_end_in_continuation(*line)) {
-    char *new_part = readline("");
-
-    // Append new_part to *line; the + 2 is for the newline and the null.
-    size_t new_size = strlen(*line) + strlen(new_part) + 2;
-    char * new_line = calloc(new_size, 1);  // count, size
-    char * cursor   = new_line;
-    cursor = stpcpy(cursor, *line);
-    cursor = stpcpy(cursor, "\n");
-    cursor = stpcpy(cursor, new_part);
-    free(*line);
-    *line = new_line;
-  }
-}
-
-// TODO
-//  * Stop at the first error.
-//  * Split the global-focused functions into their own file.
-
-// `commands` is an Array with `char *` items; each is a single-line command
-// that can be executed with a call to run_command.
-void run_global_command(int start, int end, char *pattern, Array commands) {
-  is_running_global = 1;
-  dbg_printf("%s(start=%d, end=%d, pattern='%s', <commands>)\n",
-             __FUNCTION__, start, end, pattern);
-
-  // We run the command using two passes:
-  // 1. Build a Map-based set of lines in the range that match `regex`, and
-  // 2. Use the `next_line` global to go through the file once, running
-  //    `commands` on each matching line. `next_line` is kept up to date even
-  //    when other commands edit the buffer.
-
-  // Declare variables early if they're used in the finally goto-target block.
-
-  Map matched_lines = NULL;
-
-  // Pass 1: Build the set of matching lines.
-
-  // 1A: Compile the regex pattern.
-  regex_t compiled_re;
-  int compile_flags = REG_EXTENDED;
-  char err_str[string_capacity];
-  err_str[0] = '\0';
-  int err_code = regcomp(&compiled_re, pattern, compile_flags);
-  if (err_code) {
-    regerror(err_code, &compiled_re, err_str, string_capacity);
-    error(err_str);
-    goto finally;
-  }
-
-  // 1B: Find all currently matching lines.
-  matched_lines = map__new(hash_line, eq_lines);
-  int exec_flags  = 0;
-  for (int i = start; i <= end; ++i) {
-    regmatch_t matches[max_matches];
-    int err_code = regexec(&compiled_re, line_at(i - 1), max_matches,
-                           &matches[0], exec_flags);
-    if (err_code == 0) {
-      map__set(matched_lines, line_at(i - 1), 0);
-    } else if (err_code != REG_NOMATCH && err_str[0] == '\0') {
-      regerror(err_code, &compiled_re, err_str, string_capacity);
-      error(err_str);
-      goto finally;
-    }
-  }
-
-  // Pass 2: Run `commands` on each matching line.
-
-  for (next_line = 1; next_line <= last_line();) {
-    if (!map__get(matched_lines, line_at(next_line - 1))) {
-      next_line++;  // Skip to the next line if this one doesn't match.
-      continue;
-    }
-    current_line = next_line;
-    next_line++;
-    array__for(char **, sub_cmd, commands, i) {
-      run_command(*sub_cmd);
-    }
-  }
-
-finally:
-  // It appears correct to call regfree even if regcomp fails; see the comment
-  // at the first use of regfree for more details.
-  regfree(&compiled_re);
-  if (matched_lines != NULL) map__delete(matched_lines);
-  is_running_global = 0;
-}
-
-void parse_and_run_global_command(char *command) {
-  // Parse the command.
-  assert(command);
-  int start, end;
-  int num_range_chars = parse_range(command, &start, &end);
-  command += num_range_chars;
-  if (num_range_chars == 0) {
-    start = 1;
-    end   = last_line();
-  }
-  assert(*command++ == 'g');
-
-  // Parse the regular expression.
-  if (*command != '/') {
-    error("expected '/' to start regular expression");
-    return;
-  }
-  command++;
-  char *regex = command;  // This memory remains owned by the caller.
-  while (*command && *command != '/') command++;
-  if (*command != '/') {
-    error("expected '/' to end regular expression");
-    return;
-  }
-  *command = '\0';  // This is the null terminator for the regex string.
-  command++;
-
-  // Make a list out of the command sequence.
-  // The commands list holds weak pointers into `command`; this memory
-  // will be freed by the caller after this function completes.
-  Array commands = array__new(4, sizeof(char *));
-  char *sub_cmd;
-  while ((sub_cmd = strsep(&command, "\n"))) {
-    array__new_val(commands, char *) = sub_cmd;
-  }
-  // Remove the trailing slashes.
-  array__for(char **, sub_cmd, commands, i) {
-    if (i == (commands->count - 1)) continue;  // Skip it; no trailing slash.
-    assert(strlen(*sub_cmd) >= 1);
-    (*sub_cmd)[strlen(*sub_cmd) - 1] = '\0';
-  }
-
-  run_global_command(start, end, regex, commands);
 }
 
 
@@ -998,12 +807,12 @@ int main(int argc, char **argv) {
     // TODO Verify that I don't need to free the return value of readline.
     //      Either add a free call or a comment to clarify.
     char *line = readline("");
-    if (is_global_command(line)) {
-      read_rest_of_global_command(&line);
-      parse_and_run_global_command(line);
+    if (global__is_global_command(line)) {
+      global__read_rest_of_command(&line);
+      global__parse_and_run_command(line);
       free(line);
     } else {
-      run_command(line);
+      ed2__run_command(line);
     }
   }
 
