@@ -8,7 +8,9 @@
 #include "cstructs/cstructs.h"
 
 
+///////////////////////////////////////////////////////////////////////////
 // Public globals.
+///////////////////////////////////////////////////////////////////////////
 
 // `next_line` is used to help run global commands. Edit commands keep it
 // updated when lines before it are inserted or deleted.
@@ -21,7 +23,9 @@ extern int is_running_global;  // This is 1 if a global command is running.
 extern Array lines;
 
 
+///////////////////////////////////////////////////////////////////////////
 // Public functions.
+///////////////////////////////////////////////////////////////////////////
 
 // This prints '?' and updates the last_error string.
 void ed2__error(const char *err_str);
@@ -35,7 +39,9 @@ void ed2__run_command(char *command);
 int  ed2__parse_range(char *command, int *start, int *end);
 
 
+///////////////////////////////////////////////////////////////////////////
 // Public macros and constants.
+///////////////////////////////////////////////////////////////////////////
 
 // This can be used for both setting and getting.
 // Don't forget to free the old value if setting.
@@ -48,7 +54,6 @@ int  ed2__parse_range(char *command, int *start, int *end);
 
 #define string_capacity 1024
 
-
 // Debug macros.
 
 #define show_debug_output 0
@@ -58,6 +63,3 @@ int  ed2__parse_range(char *command, int *start, int *end);
 #else
 #define dbg_printf(...)
 #endif
-
-
-

@@ -13,7 +13,6 @@
 
 // TODO
 //  * Add a file-modified warning on the quit command.
-//  * Split this file into internal and public functions (and main).
 
 // Header for this file.
 #include "ed2.h"
@@ -75,12 +74,6 @@ int    backup_current_line;
 ///////////////////////////////////////////////////////////////////////////
 // Internal functions.
 ///////////////////////////////////////////////////////////////////////////
-
-void ed2__error(const char *err_str) {
-  strcpy(last_error, err_str);
-  printf("?\n");
-  if (do_print_errors) printf("%s\n", last_error);
-}
 
 void line_releaser(void *line_vp, void *context) {
   char *line = *(char **)line_vp;
@@ -237,50 +230,6 @@ int scan_line_number(char *command, int *num) {
   int num_chars_parsed;
   int num_items_parsed = sscanf(command, "%d%n", num, &num_chars_parsed);
   return (num_items_parsed > 0 ? num_chars_parsed : 0);
-}
-
-// This parses out any initial line range from a command, returning the number
-// of characters parsed. If a range is successfully parsed, then current_line is
-// updated to the end of this range.
-int ed2__parse_range(char *command, int *start, int *end) {
-
-  // For now, we'll parse ranges of the following types:
-  //  * <no range>
-  //  * ,
-  //  * %
-  //  * <int>
-  //  * <int>,
-  //  * <int>,<int>
-
-  // Set up the default range.
-  *start = *end = current_line;
-
-  int parsed = 0;
-
-  // The ',' and '%' cases.
-  if (*command == ',' || *command == '%') {
-    *start = 1;
-    current_line = *end = last_line;
-    return 1;  // Parsed 1 character.
-  }
-
-  int num_chars_parsed = scan_line_number(command, start);
-  parsed += num_chars_parsed;
-
-  // The <no range> case.
-  if (num_chars_parsed == 0) return parsed;
-
-  // The <int> case.
-  current_line = *end = *start;
-  if (*(command + parsed) != ',') return parsed;
-
-  parsed++;  // Skip over the ',' character.
-  num_chars_parsed = scan_line_number(command + parsed, end);
-  parsed += num_chars_parsed;
-  if (num_chars_parsed > 0) current_line = *end;
-
-  // The <int>,<int> and <int>, cases.
-  return parsed;
 }
 
 // This expects to receive a string of the form "/regex/repl/", which it parses
@@ -610,6 +559,61 @@ void move_lines(int start, int end, int dst) {
   delete_range(start + offset, end + offset);  // This updates next_line.
 
   current_line = dst + offset;
+}
+
+
+///////////////////////////////////////////////////////////////////////////
+// Public functions.
+///////////////////////////////////////////////////////////////////////////
+
+void ed2__error(const char *err_str) {
+  strcpy(last_error, err_str);
+  printf("?\n");
+  if (do_print_errors) printf("%s\n", last_error);
+}
+
+// This parses out any initial line range from a command, returning the number
+// of characters parsed. If a range is successfully parsed, then current_line is
+// updated to the end of this range.
+int ed2__parse_range(char *command, int *start, int *end) {
+
+  // For now, we'll parse ranges of the following types:
+  //  * <no range>
+  //  * ,
+  //  * %
+  //  * <int>
+  //  * <int>,
+  //  * <int>,<int>
+
+  // Set up the default range.
+  *start = *end = current_line;
+
+  int parsed = 0;
+
+  // The ',' and '%' cases.
+  if (*command == ',' || *command == '%') {
+    *start = 1;
+    current_line = *end = last_line;
+    return 1;  // Parsed 1 character.
+  }
+
+  int num_chars_parsed = scan_line_number(command, start);
+  parsed += num_chars_parsed;
+
+  // The <no range> case.
+  if (num_chars_parsed == 0) return parsed;
+
+  // The <int> case.
+  current_line = *end = *start;
+  if (*(command + parsed) != ',') return parsed;
+
+  parsed++;  // Skip over the ',' character.
+  num_chars_parsed = scan_line_number(command + parsed, end);
+  parsed += num_chars_parsed;
+  if (num_chars_parsed > 0) current_line = *end;
+
+  // The <int>,<int> and <int>, cases.
+  return parsed;
 }
 
 void ed2__run_command(char *command) {
