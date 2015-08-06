@@ -121,15 +121,14 @@ int global__is_global_command(char *command) {
 //  * Split the global-focused functions into their own file.
 
 // This expects *line to be the first, and possibly only, line of a global
-// command. If it ends in a continuation, reads and appends more lines with
-// joining newline characters until the command sequence is complete. The final
-// string will not end with a newline. It's expected that the caller owns
-// *line. This function may free and reallocate the memory at *line.
+// command. If *line ends in a continuation, this reads and appends more lines
+// with joining newline characters until the command sequence is complete. The
+// final string will not end with a newline. It's expected that the caller owns
+// *line, and the caller keeps the responsibility of freeing *line. This
+// function may free and reallocate the memory at *line.
 void global__read_rest_of_command(char **line) {
-  *line = strdup(*line);  // Take ownership of the string's memory.
   while (does_end_in_continuation(*line)) {
-    char *new_part = readline("");
-
+    char *new_part = readline("");  // We own the memory of `new_part`.
     // Append new_part to *line; the + 2 is for the newline and the null.
     size_t new_size = strlen(*line) + strlen(new_part) + 2;
     char * new_line = calloc(new_size, 1);  // count, size
@@ -138,6 +137,7 @@ void global__read_rest_of_command(char **line) {
     cursor = stpcpy(cursor, "\n");
     cursor = stpcpy(cursor, new_part);
     free(*line);
+    free(new_part);
     *line = new_line;
   }
 }

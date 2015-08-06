@@ -429,9 +429,9 @@ void print_line(int line_index, int do_add_number) {
 // The lines are appended to the end of the given `lines` Array.
 void read_in_lines(Array lines) {
   while (1) {
-    char *line = readline("");
+    char *line = readline("");  // We own the memory of `line`.
     if (strcmp(line, ".") == 0) return;
-    array__new_val(lines, char *) = strdup(line);
+    array__new_val(lines, char *) = line;
   }
 }
 
@@ -808,16 +808,14 @@ int main(int argc, char **argv) {
 
   // Enter our read-eval-print loop (REPL).
   while (1) {
-    // TODO Verify that I don't need to free the return value of readline.
-    //      Either add a free call or a comment to clarify.
-    char *line = readline("");
+    char *line = readline("");  // We own the memory of `line`.
     if (global__is_global_command(line)) {
       global__read_rest_of_command(&line);
       global__parse_and_run_command(line);
-      free(line);
     } else {
       ed2__run_command(line);
     }
+    free(line);
   }
 
   return 0;
