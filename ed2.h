@@ -12,6 +12,9 @@
 // Public globals.
 ///////////////////////////////////////////////////////////////////////////
 
+// Most constants are defined below, but this one helps define last_error.
+#define string_capacity 1024
+
 // `next_line` is used to help run global commands. Edit commands keep it
 // updated when lines before it are inserted or deleted.
 extern int next_line;     // This is 1-indexed.
@@ -21,6 +24,9 @@ extern int is_running_global;  // This is 1 if a global command is running.
 // The lines are held in an array. The array frees removed lines for us.
 // The byte stream can be formed by joining this array with "\n".
 extern Array lines;
+
+// An empty string indicates there was no known last error.
+extern char last_error[string_capacity];
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -52,7 +58,6 @@ int  ed2__parse_range(char *command, int *start, int *end);
 
 #define max_matches 10
 
-#define string_capacity 1024
 
 // Debug macros.
 

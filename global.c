@@ -35,6 +35,11 @@ void run_global_command(int start, int end, char *pattern, Array commands) {
   dbg_printf("%s(start=%d, end=%d, pattern='%s', <commands>)\n",
              __FUNCTION__, start, end, pattern);
 
+  // Save the current error string so we can notice any execution errors.
+  char   saved_error[string_capacity];
+  strcpy(saved_error, last_error);
+  strcpy( last_error, "");
+
   // We run the command using two passes:
   // 1. Build a Map-based set of lines in the range that match `regex`, and
   // 2. Use the `next_line` global to go through the file once, running
@@ -86,6 +91,7 @@ void run_global_command(int start, int end, char *pattern, Array commands) {
     next_line++;
     array__for(char **, sub_cmd, commands, i) {
       ed2__run_command(*sub_cmd);
+      if (last_error[0]) goto finally;  // Stop early on errors.
     }
   }
 
@@ -94,6 +100,7 @@ finally:
   // at the first use of regfree for more details.
   regfree(&compiled_re);
   if (matched_lines != NULL) map__delete(matched_lines);
+  if (last_error[0] == '\0') strcpy(last_error, saved_error);
   is_running_global = 0;
 }
 
@@ -115,10 +122,6 @@ int global__is_global_command(char *command) {
   command += ed2__parse_range(command, &start, &end);
   return *command == 'g';
 }
-
-// TODO
-//  * Stop at the first error.
-//  * Split the global-focused functions into their own file.
 
 // This expects *line to be the first, and possibly only, line of a global
 // command. If *line ends in a continuation, this reads and appends more lines
