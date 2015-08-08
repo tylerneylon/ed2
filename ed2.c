@@ -11,8 +11,8 @@
 // implemented.
 //
 
-// TODO
-//  * Add a file-modified warning on the quit command.
+// TODO If the last line is added via one of the line editing commands,
+//      make the file end in a newline.
 
 // Header for this file.
 #include "ed2.h"
@@ -129,7 +129,7 @@ void load_state_from_backup() {
 
 // Separate a raw buffer into a sequence of indexed lines.
 // Destroys the buffer in the process.
-void find_lines(char *buffer) {
+void break_into_lines(char *buffer) {
   assert(lines);  // Check that lines has been initialized.
   assert(buffer);
 
@@ -185,7 +185,7 @@ void load_file(char *new_filename) {
 
   fclose(f);
 
-  find_lines(buffer);
+  break_into_lines(buffer);
   free(buffer);
   printf("%zd\n", buffer_size);  // Report how many bytes we read.
 }
@@ -694,8 +694,19 @@ void ed2__run_command(char *command) {
 
   switch(*command) {
 
-    case 'q':  // Quit.  TODO Error if a range is provided.
-      exit(0);
+    case 'q':
+      {
+        if (!is_default_range) {
+          ed2__error("unexpected address");
+          break;
+        }
+        if (is_modified) {
+          ed2__error("warning: file modified");
+          // TODO Let 'em quit if they try again.
+          break;
+        }
+        exit(0);
+      }
 
     case '\0': // If no range was given, advence a line. Print current_line.
       {
