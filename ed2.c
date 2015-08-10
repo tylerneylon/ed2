@@ -11,9 +11,6 @@
 // implemented.
 //
 
-// TODO If the last line is added via one of the line editing commands,
-//      make the file end in a newline.
-
 // Header for this file.
 #include "ed2.h"
 
@@ -300,6 +297,8 @@ void substring_repl(char **line_ptr, size_t start, size_t end, char *repl) {
   *line_ptr = new_line;
 }
 
+// This expands a replacement string repl and a set of matches into a full
+// literal replacement string full_repl for those matches.
 // If `full_repl` is not NULL, this allocates a new string with the full
 // replacement string based on `repl` and the given matches, and places it in
 // `full_repl`. The caller is responsible for freeing that string. If
@@ -464,6 +463,13 @@ void read_and_insert_lines_at(int index) {
   if (index > lines->count) index = lines->count;
   Array new_lines = array__new(16, sizeof(char *));
   read_in_lines(new_lines);
+  // If we're appending lines at the end of the buffer, ensure the files ends in
+  // a newline. Our overall position on ending newlines is to keep the original
+  // state unless the user adds lines; in that case we ensure an ending newline.
+  if (index == lines->count &&
+      *array__item_val(new_lines, new_lines->count - 1, char *) != '\0') {
+    array__new_val(new_lines, char *) = strdup("");
+  }
   insert_subarr_into_arr(new_lines, lines, index);
   current_line += new_lines->count;
   if ((next_line - 1) >= index) next_line += new_lines->count;
