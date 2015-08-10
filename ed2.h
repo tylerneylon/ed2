@@ -68,3 +68,22 @@ int  ed2__parse_range(char *command, int *start, int *end);
 #else
 #define dbg_printf(...)
 #endif
+
+// Error strings.
+
+// File-related.
+#define error__file_modified        "warning: file modified"
+#define error__no_current_filename  "no current filename"
+#define error__bad_write            "error while writing"
+
+// Regex-related.
+#define error__no_slash_in_s_cmd    "expected '/' after s command"
+#define error__bad_regex_start      "expected '/' to start regular expression"
+#define error__bad_regex_end        "expected '/' to end regular expression"
+#define error__no_match             "no match"
+
+// Address or command related.
+#define error__invalid_address      "invalid address"
+#define error__bad_cmd_suffix       "unexpected command suffix"
+#define error__unexpected_address   "unexpected address"
+#define error__bad_cmd              "unknown command"

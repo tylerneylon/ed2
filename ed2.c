@@ -148,13 +148,13 @@ void break_into_lines(char *buffer) {
 void load_file(char *new_filename) {
 
   if (is_modified) {
-    ed2__error("warning: file modified");
+    ed2__error(error__file_modified);
     return;
   }
 
   if (new_filename) strlcpy(filename, new_filename, string_capacity);
   if (strlen(filename) == 0) {
-    ed2__error("no current filename");
+    ed2__error(error__no_current_filename);
     return;
   }
 
@@ -192,7 +192,7 @@ void load_file(char *new_filename) {
 int save_file(char *new_filename) {
   if (new_filename) strlcpy(filename, new_filename, string_capacity);
   if (strlen(filename) == 0) {
-    ed2__error("no current filename");
+    ed2__error(error__no_current_filename);
     return -1;
   }
 
@@ -213,7 +213,7 @@ int save_file(char *new_filename) {
     nbytes_written += nbytes_this_line;
   }
 
-  if (was_error) ed2__error("error while writing");
+  if (was_error) ed2__error(error__bad_write);
 
   is_modified = 0;
   fclose(f);
@@ -238,7 +238,7 @@ int parse_subst_params(char *command, char **pattern, char **repl,
   char *cursor = command;
 
   if (*cursor != '/') {
-    ed2__error("expected '/' after s command");
+    ed2__error(error__no_slash_in_s_cmd);
     return 0;  // 0 = did not work
   }
 
@@ -247,7 +247,7 @@ int parse_subst_params(char *command, char **pattern, char **repl,
   int p_start = cursor - command;
   while (*cursor && *cursor != '/') cursor++;
   if (*cursor == '\0') {
-    ed2__error("expected '/' to end regular expression");
+    ed2__error(error__bad_regex_end);
     return 0;  // 0 = did not work
   }
   int p_len = cursor - command - p_start;
@@ -414,7 +414,7 @@ void substitute_on_lines(char *pattern, char *repl,
     }
   }
   if (err_str[0] != '\0') ed2__error(err_str);
-  else if (!did_match_any) ed2__error("no match");
+  else if (!did_match_any) ed2__error(error__no_match);
   regfree(&compiled_re);
 }
 
@@ -479,7 +479,7 @@ void read_and_insert_lines_at(int index) {
 // Returns true iff the range is bad.
 int err_if_bad_range(int start, int end) {
   if (start < 1 || end > last_line) {
-    ed2__error("invalid address");
+    ed2__error(error__invalid_address);
     return 1;
   }
   return 0;
@@ -488,7 +488,7 @@ int err_if_bad_range(int start, int end) {
 // Returns true iff the new current line is bad.
 int err_if_bad_current_line(int new_current_line) {
   if (new_current_line < 1 || new_current_line > last_line) {
-    ed2__error("invalid address");  // TODO Drop magic strings.
+    ed2__error(error__invalid_address);
     return 1;
   }
   current_line = new_current_line;
@@ -651,7 +651,7 @@ void ed2__run_command(char *command) {
         char *new_filename = NULL;  // NULL makes save_file use the global name.
         if (*++command != '\0') {
           if (*command != ' ') {
-            ed2__error("unexpected command suffix");
+            ed2__error(error__bad_cmd_suffix);
           } else {
             new_filename = ++command;
           }
@@ -669,7 +669,7 @@ void ed2__run_command(char *command) {
         char *new_filename = NULL;  // NULL makes load_file use the global name.
         if (*++command != '\0') {
           if (*command != ' ') {
-            ed2__error("unexpected command suffix");
+            ed2__error(error__bad_cmd_suffix);
           } else {
             new_filename = ++command;
           }
@@ -703,11 +703,11 @@ void ed2__run_command(char *command) {
     case 'q':
       {
         if (!is_default_range) {
-          ed2__error("unexpected address");
+          ed2__error(error__unexpected_address);
           break;
         }
         if (is_modified) {
-          ed2__error("warning: file modified");
+          ed2__error(error__file_modified);
           // TODO Let 'em quit if they try again.
           break;
         }
@@ -792,7 +792,7 @@ void ed2__run_command(char *command) {
       }
 
     default:  // If we get here, the command wasn't recognized.
-      ed2__error("unknown command");
+      ed2__error(error__bad_cmd);
   }
 
   // TODO Clean up this command parsing bit.

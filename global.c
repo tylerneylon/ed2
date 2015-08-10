@@ -161,14 +161,14 @@ void global__parse_and_run_command(char *command) {
 
   // Parse the regular expression.
   if (*command != '/') {
-    ed2__error("expected '/' to start regular expression");
+    ed2__error(error__bad_regex_start);
     return;
   }
   command++;
   char *regex = command;  // This memory remains owned by the caller.
   while (*command && *command != '/') command++;
   if (*command != '/') {
-    ed2__error("expected '/' to end regular expression");
+    ed2__error(error__bad_regex_end);
     return;
   }
   *command = '\0';  // This is the null terminator for the regex string.
