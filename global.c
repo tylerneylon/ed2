@@ -30,7 +30,8 @@ int eq_lines(void *line1_vptr, void *line2_vptr) {
 
 // `commands` is an Array with `char *` items; each is a single-line command
 // that can be executed with a call to ed2__run_command.
-void run_global_command(int start, int end, char *pattern, Array commands) {
+void run_global_command(int start, int end, char *pattern,
+                        Array commands, int is_inverted) {
   is_running_global = 1;
   dbg_printf("%s(start=%d, end=%d, pattern='%s', <commands>)\n",
              __FUNCTION__, start, end, pattern);
@@ -71,9 +72,10 @@ void run_global_command(int start, int end, char *pattern, Array commands) {
     regmatch_t matches[max_matches];
     int err_code = regexec(&compiled_re, line_at(i - 1), max_matches,
                            &matches[0], exec_flags);
-    if (err_code == 0) {
+    if ((!is_inverted && err_code == 0) ||
+        ( is_inverted && err_code == REG_NOMATCH)) {
       map__set(matched_lines, line_at(i - 1), 0);
-    } else if (err_code != REG_NOMATCH && err_str[0] == '\0') {
+    } else if (err_code && err_code != REG_NOMATCH && err_str[0] == '\0') {
       regerror(err_code, &compiled_re, err_str, string_capacity);
       ed2__error(err_str);
       goto finally;
@@ -120,7 +122,7 @@ int global__is_global_command(char *command) {
   assert(command);
   int start, end;
   command += ed2__parse_range(command, &start, &end);
-  return *command == 'g';
+  return *command == 'g' || *command == 'v';
 }
 
 // This expects *line to be the first, and possibly only, line of a global
@@ -157,7 +159,9 @@ void global__parse_and_run_command(char *command) {
     start = 1;
     end   = last_line;
   }
-  assert(*command++ == 'g');
+  assert(*command == 'g' || *command == 'v');
+  int is_inverted = (*command == 'v');
+  command++;
 
   // Parse the regular expression.
   if (*command != '/') {
@@ -189,5 +193,5 @@ void global__parse_and_run_command(char *command) {
     (*sub_cmd)[strlen(*sub_cmd) - 1] = '\0';
   }
 
-  run_global_command(start, end, regex, commands);
+  run_global_command(start, end, regex, commands, is_inverted);
 }

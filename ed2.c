@@ -33,8 +33,6 @@
 // Constants.
 ///////////////////////////////////////////////////////////////////////////
 
-// TODO Define error strings here.
-
 // TODO Consistentify comment style.
 
 // The user can't undo when backup_current_line == no_valid_backup.
@@ -830,7 +828,7 @@ int main(int argc, char **argv) {
       global__read_rest_of_command(&line);
       global__parse_and_run_command(line);
     } else {
-      ed2__run_command(line);
+      ed2__run_command(line);  // This may exit the program.
     }
     free(line);
   }
