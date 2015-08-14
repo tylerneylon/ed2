@@ -5,6 +5,10 @@
 
 #pragma once
 
+
+// ——————————————————————————————————————————————————————————————————————
+// Public functions.
+
 // Returns 1 iff the given command is the first line of a global command.
 int  global__is_global_command(char *command);
 

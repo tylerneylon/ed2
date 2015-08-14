@@ -8,9 +8,8 @@
 #include "cstructs/cstructs.h"
 
 
-///////////////////////////////////////////////////////////////////////////
+// ——————————————————————————————————————————————————————————————————————
 // Public globals.
-///////////////////////////////////////////////////////////////////////////
 
 // Most constants are defined below, but this one helps define last_error.
 #define string_capacity 1024
@@ -29,14 +28,13 @@ extern Array lines;
 extern char last_error[string_capacity];
 
 
-///////////////////////////////////////////////////////////////////////////
+// ——————————————————————————————————————————————————————————————————————
 // Public functions.
-///////////////////////////////////////////////////////////////////////////
 
 // This prints '?' and updates the last_error string.
 void ed2__error(const char *err_str);
 
-// This rungs the given command string.
+// This runs the given command string.
 void ed2__run_command(char *command);
 
 // This parses out any initial line range from a command, returning the number
@@ -45,9 +43,8 @@ void ed2__run_command(char *command);
 int  ed2__parse_range(char *command, int *start, int *end);
 
 
-///////////////////////////////////////////////////////////////////////////
+// ——————————————————————————————————————————————————————————————————————
 // Public macros and constants.
-///////////////////////////////////////////////////////////////////////////
 
 // This can be used for both setting and getting.
 // Don't forget to free the old value if setting.
@@ -68,6 +65,7 @@ int  ed2__parse_range(char *command, int *start, int *end);
 #else
 #define dbg_printf(...)
 #endif
+
 
 // Error strings.
 

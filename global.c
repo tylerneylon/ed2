@@ -17,6 +17,7 @@
 #include <string.h>
 
 
+// ——————————————————————————————————————————————————————————————————————
 // Internal functions.
 
 // The next two functions are for the matched_lines hash map.
@@ -115,6 +116,7 @@ int does_end_in_continuation(char *line) {
 }
 
 
+// ——————————————————————————————————————————————————————————————————————
 // Public functions.
 
 // Returns 1 iff the given command is the first line of a global command.
