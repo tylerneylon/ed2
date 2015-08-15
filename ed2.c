@@ -85,13 +85,11 @@ void init() {
   backup_lines        = new_lines_array();
   backup_current_line = no_valid_backup;
 
-  // TODO This default only matters for new files. Study ed's behavior to
-  //      determine what the current line effectively is for new files.
-  //      This isn't obvious to me because I have the sense that 'a' will
-  //      append after line 0, while 'i' will insert before line 1.
   // This variable is the same as what the user considers it; this is
   // non-obvious in that our lines array is 0-indexed, so we have to be careful
   // when indexing into `lines`.
+  // This works with new/empty files as both the i=insert and a=append commands
+  // will silently clamp their index to a valid point for the user.
   current_line = 0;
 
   strcpy(last_error, "");
