@@ -73,6 +73,7 @@ int  ed2__parse_range(char *command, int *start, int *end);
 #define error__file_modified        "warning: file modified"
 #define error__no_current_filename  "no current filename"
 #define error__bad_write            "error while writing"
+#define error__bad_read             "error: file may exist but couldn't read it"
 
 // Regex-related.
 #define error__no_slash_in_s_cmd    "expected '/' after s command"

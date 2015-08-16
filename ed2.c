@@ -22,6 +22,7 @@
 
 // Standard includes.
 #include <assert.h>
+#include <errno.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -152,30 +153,42 @@ void load_file(char *new_filename) {
   FILE *f = fopen(filename, "rb");
 
   if (f == NULL) {
-    printf("%s: No such file or directory\n", filename);
-    return;
+    if (errno == ENOENT) {
+      printf("%s: No such file or directory\n", filename);
+      return;
+    }
+    // Otherwise, the file exists but we couldn't open it.
+    goto bad_read;
   }
 
   struct stat file_stats;
   int is_err = fstat(fileno(f), &file_stats);
-  // TODO Handle is_err != 0.
+  if (is_err) goto bad_read;
 
   size_t buffer_size = file_stats.st_size;
   char * buffer = malloc(buffer_size + 1);  // + 1 for the final null character.
 
-  is_err = fread(buffer,       // buffer ptr
-                 1,            // item size
-                 buffer_size,  // num items
-                 f);           // stream
-  buffer[buffer_size] = '\0';  // Manually add a final null character.
+  int num_read = fread(buffer,       // buffer ptr
+                       1,            // item size
+                       buffer_size,  // num items
+                       f);           // stream
+  buffer[buffer_size] = '\0';        // Manually add a final null character.
 
-  // TODO Handle is_err != 0.
+  if (num_read < buffer_size) goto bad_read;
 
   fclose(f);
 
   break_into_lines(buffer);
   free(buffer);
   printf("%zd\n", buffer_size);  // Report how many bytes we read.
+  return;
+
+bad_read:
+
+  // It feels disingenuous to me to let the user edit anything when the file may
+  // exist but we can't read it. So we report an error and flat-out exit.
+  printf("%s\n", error__bad_read);
+  exit(1);
 }
 
 // Save the buffer. If filename is NULL, save it to the current filename.
