@@ -201,7 +201,16 @@ int save_file(char *new_filename) {
   }
 
   FILE *f = fopen(filename, "wb");
-  // TODO Handle the case that f is NULL.
+  if (f == NULL) {
+    if (errno == EACCES) {  // A permission error has its own error string.
+      char err_str[string_capacity];
+      snprintf(err_str, string_capacity, "%s: permission denied", filename);
+      ed2__error(err_str);
+    } else {
+      ed2__error(error__bad_write);  // Other write errors get a generic string.
+    }
+    return -1;  // -1 --> indicate error
+  }
 
   int nbytes_written = 0;
   int was_error = 0;
@@ -217,7 +226,10 @@ int save_file(char *new_filename) {
     nbytes_written += nbytes_this_line;
   }
 
-  if (was_error) ed2__error(error__bad_write);
+  if (was_error) {
+    ed2__error(error__bad_write);
+    return -1;  // -1 --> indicate error
+  }
 
   is_modified = 0;
   fclose(f);
