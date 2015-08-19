@@ -562,7 +562,14 @@ void join_range(int start, int end, int is_default_range) {
 
 // Moves the range [start, end] to be after the text currently at line dst.
 void move_lines(int start, int end, int dst) {
-  // TODO Check that range, dst, and the pair are all valid.
+  if (start < 1 || end < start || last_line < end) {
+    ed2__error(error__invalid_range);
+    return;
+  }
+  if (start <= dst && dst < end) {
+    ed2__error(error__invalid_dst);
+    return;
+  }
 
   // 1. Deep copy the lines being moved so we can call delete_range later.
   Array moving_lines = array__new(end - start + 1, sizeof(char *));

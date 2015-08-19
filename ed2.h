@@ -83,6 +83,8 @@ int  ed2__parse_range(char *command, int *start, int *end);
 
 // Address or command related.
 #define error__invalid_address      "invalid address"
+#define error__invalid_range        "invalid range"
+#define error__invalid_dst          "invalid destination address"
 #define error__bad_cmd_suffix       "unexpected command suffix"
 #define error__unexpected_address   "unexpected address"
 #define error__bad_cmd              "unknown command"
