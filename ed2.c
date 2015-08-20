@@ -257,29 +257,39 @@ int parse_subst_params(char *command, char **pattern, char **repl,
     ed2__error(error__no_slash_in_s_cmd);
     return 0;  // 0 = did not work
   }
+  cursor++;  // Skip the current '/'.
 
   // `pattern` will have offsets [p_start, p_start + p_len).
-  cursor++;  // Skip the current '/'.
+  // This code does *not* allow for an escaped '/' char in the pattern.
   int p_start = cursor - command;
   while (*cursor && *cursor != '/') cursor++;
   if (*cursor == '\0') {
     ed2__error(error__bad_regex_end);
     return 0;  // 0 = did not work
   }
-  int p_len = cursor - command - p_start;
+  int p_end = cursor - command;
+  int p_len = p_end - p_start;
 
-  // `repl` will have offsets [r_start, r_end).
   cursor++;  // Skip the current '/'.
+
+  // `repl` will have offsets [r_start, r_start + r_len).
+  // This code does *not* allow for an escaped '/' char in the repl.
   int r_start = cursor - command;
   while (*cursor && *cursor != '/') cursor++;
   // Be chill if there's no trailing '/'.
-  int r_len = cursor - command - r_start;
+  int r_end = cursor - command;
+  int r_len = r_end - r_start;
 
   // Check for a global flag.
   *is_global = 0;
-  if (*cursor && *(cursor + 1) == 'g') *is_global = 1;
-
-  // TODO Complain if there's an unrecognized suffix.
+  if (*cursor) {
+    if (*(cursor + 1) == 'g') {
+      *is_global = 1;
+    } else if (*(cursor + 1) != '\0') {
+      ed2__error(error__bad_cmd_suffix);
+      return 0;  // 0 = did not work
+    }
+  }
 
   // Allocate and copy our output strings.
   *pattern = calloc(p_len + 1, 1);  // + 1 for the final null, 1 = size
