@@ -23,7 +23,7 @@ typedef struct {
   map__Eq    eq;
   Releaser   key_releaser;
   Releaser   value_releaser;
-  map__Alloc pair_alloc;  // Default is malloc; customize to add fields per key/value.
+  map__Alloc pair_alloc;  // Default=malloc; customize to add fields per item.
 } MapStruct;
 
 typedef MapStruct *Map;

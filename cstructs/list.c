@@ -52,14 +52,18 @@ void list__delete_and_release(List *list, Releaser releaser, void *context) {
   // This leaves *list == NULL, as we want.
 }
 
-List *list__find_entry(List *list, void *needle, int (*val_eq_needle)(void *, void *)) {
+List *list__find_entry(List *list,
+                       void *needle,
+                       int (*val_eq_needle)(void *, void *)) {
   for (List *iter = list; *iter; iter = &((*iter)->next)) {
     if (val_eq_needle((*iter)->item, needle)) return iter;
   }
   return NULL;
 }
 
-void *list__find_value(List *list, void *needle, int (*val_eq_needle)(void *, void *)) {
+void *list__find_value(List *list,
+                       void *needle,
+                       int (*val_eq_needle)(void *, void *)) {
   list__for(void *, elt, *list) if (val_eq_needle(elt, needle)) return elt;
   return NULL;
 }

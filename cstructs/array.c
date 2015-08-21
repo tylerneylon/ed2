@@ -78,7 +78,8 @@ void *array__new_ptr(Array array) {
   if (array->count == array->capacity) {
     array->capacity *= 2;
     if (array->capacity == 0) array->capacity = 1;
-    array->items = realloc(array->items, array->capacity * (int)array->item_size);
+    array->items = realloc(array->items,
+                           array->capacity * (int)array->item_size);
   }
   array->count++;
   return array__item_ptr(array, array->count - 1);
@@ -104,7 +105,8 @@ void array__remove_item(Array array, void *item) {
   ptrdiff_t byte_dist = item_byte - array->items;
   int index = (int)(byte_dist / array->item_size);
   if (index == num_left) return;
-  memmove(item_byte, item_byte + array->item_size, (num_left - index) * array->item_size);
+  memmove(item_byte, item_byte + array->item_size,
+            (num_left - index) * array->item_size);
 }
 
 void array__add_zeroed_items(Array array, int num_items) {
@@ -116,14 +118,17 @@ void array__add_zeroed_items(Array array, int num_items) {
     resize_needed = 1;
   }
   if (resize_needed) {
-    array->items = realloc(array->items, array->capacity * (int)array->item_size);
+    array->items = realloc(array->items,
+                           array->capacity * (int)array->item_size);
   }
   void *bytes_to_zero = array__item_ptr(array, array->count);
   memset(bytes_to_zero, 0, num_items * array->item_size);
   array->count = new_count;
 }
 
-static int compare_as_ints(void *item_size, const void *item1, const void *item2) {
+static int compare_as_ints(void *item_size,
+                           const void *item1,
+                           const void *item2) {
   size_t s = *(size_t *)item_size;
   unsigned char *i1 = (unsigned char *)item1;
   unsigned char *i2 = (unsigned char *)item2;
@@ -143,7 +148,9 @@ static int custom_compare(const void *item1, const void *item2) {
   return user_compare(user_context, item1, item2);
 }
 
-void array__sort(Array array, array__CompareFunction compare, void *compare_context) {
+void array__sort(Array array,
+                 array__CompareFunction compare,
+                 void *compare_context) {
   CompareFn old_compare = user_compare;
   void *old_context = user_context;
 
@@ -169,7 +176,11 @@ static int compare_for_find(const void *a, const void *b) {
 void *array__find(Array array, void *item) {
   size_t old_size = item_size;
   item_size = array->item_size;
-  void *found_val = bsearch(item, array->items, array->count, array->item_size, compare_for_find);
+  void *found_val = bsearch(item,               // key
+                            array->items,       // data base ptr
+                            array->count,       // num items
+                            array->item_size,   // item width
+                            compare_for_find);  // cmp function
   item_size = old_size;
   return found_val;
 }

@@ -24,17 +24,22 @@ typedef struct {
 
 typedef ArrayStruct *Array;
 
+
 // Constant-time operations.
 
-Array array__new  (int capacity, size_t item_size);               // Allocates and initializes a new array.
-Array array__init (Array array, int capacity, size_t item_size);  // For use on an allocated but uninit'd array struct.
+// Allocates and initializes a new array.
+Array array__new  (int capacity, size_t item_size);
+
+// For use on an allocated but uninitialized array struct.
+Array array__init (Array array, int capacity, size_t item_size);
+
 
 // The next three methods are O(1) if there's no releaser; O(n) if there is.
 void  array__clear   (Array array);  // Releases all items and sets count to 0.
-void  array__release (void *array);  // Clears array and frees all capacity; doesn't free array itself.
+void  array__release (void *array);  // Releases/frees all mem but array itself.
 void  array__delete  (Array array);  // Releases array and frees array itself.
 
-// These do the same job as the above versions and send a context value to the releaser.
+// These do the same job as the above ones and send a context to the releaser.
 void array__clear_with_context   (Array array, void *context);
 void array__release_with_context (void *array, void *context);
 void array__delete_with_context  (Array array, void *context);
@@ -64,9 +69,10 @@ void array__add_zeroed_items (Array array, int num_items);
 // Think:   type item_ptr = &array[index];  // for each index in the array.
 
 // If you used sizeof(x) to set up the array, then the type for array__for is
-// expected to be "x *" (a pointer to x). It is safe to continue or break, edit the
-// index, and to edit the array itself, although array changes - including *any*
-// additions at all - may invalidate item_ptr until the start of the next iteration.
+// expected to be "x *" (a pointer to x). It is safe to continue or break, edit
+// the index, and to edit the array itself, although array changes - including
+// *any* additions at all - may invalidate item_ptr until the start of the next
+// iteration.
 #define array__for(type, item_ptr, array, index)            \
   for (int index = 0, __tmpvar = 1; __tmpvar--;)            \
   for (type item_ptr = (type)array__item_ptr(array, index); \
@@ -76,7 +82,9 @@ void array__add_zeroed_items (Array array, int num_items);
 
 typedef int (*array__CompareFunction)(void *, const void *, const void *);
 
-void array__sort(Array array, array__CompareFunction compare, void *compare_context);
+void array__sort(Array array,
+                 array__CompareFunction compare,
+                 void *compare_context);
 
 // Assumes the array is sorted in ascending memcmp order; does a memcmp of
 // each item in the array, using a binary search.
