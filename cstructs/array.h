@@ -56,7 +56,8 @@ void *  array__new_ptr(Array array);
 
 // Possibly linear time operations.
 
-void array__append_array (Array dst, Array src);  // Expects dest != src.
+void array__insert_items (Array array, int index, void *items, int num_items);
+void array__append_array (Array dst, Array src);  // Expects dst != src.
 int  array__index_of     (Array array, void *item);
 
 // The item is expected to be an object already within the array, i.e.,

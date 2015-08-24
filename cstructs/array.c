@@ -85,6 +85,25 @@ void *array__new_ptr(Array array) {
   return array__item_ptr(array, array->count - 1);
 }
 
+void array__insert_items(Array array, int index, void *items, int num_items) {
+  // array starts as <prefix> <suffix>; we'll move over <suffix> so it becomes
+  //                 <prefix> <new-items> <suffix>.
+  int num_new_item_bytes = num_items * array->item_size;
+  // The order here is important. We want to use the original count first. The
+  // expansion may change array->items, so we only refer to it afterwards.
+  int num_suffix_bytes = (array->count - index) * array->item_size;
+  array__add_zeroed_items(array, num_items);
+  char *index_pt = (char *)array->items + index * array->item_size;
+  memmove(index_pt + num_new_item_bytes,  // dst
+          index_pt,                       // src
+          num_suffix_bytes);              // len
+
+  // Copy over the new items.
+  memcpy(index_pt,             // dst
+         items,                // src
+         num_new_item_bytes);  // len
+}
+
 void array__append_array(Array dst, Array src) {
   // We avoid using array__for since we don't know which type of pointer to use.
   for (int i = 0; i < src->count; ++i) {

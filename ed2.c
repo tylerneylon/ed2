@@ -460,27 +460,6 @@ void read_in_lines(Array lines) {
   }
 }
 
-// This inserts all of `sub` into `arr` so that arr[index] = sub[0].
-// TODO Modify cstructs to make this easier.
-void insert_subarr_into_arr(Array sub, Array arr, int index) {
-  assert(arr->item_size == sub->item_size);
-  int arr_count = arr->count;
-  int sub_count = sub->count;
-  array__add_zeroed_items(arr, sub->count);
-  for (int i = arr_count - 1; i >= index; --i) {
-    // arr[i + sub_count] = arr[i]
-    memcpy(array__item_ptr(arr, i + sub_count),  // dst
-           array__item_ptr(arr, i),              // src
-           arr->item_size);                      // size
-  }
-  for (int i = 0; i < sub_count; ++i) {
-    // arr[i + index] = sub[i]
-    memcpy(array__item_ptr(arr, i + index),  // dst
-           array__item_ptr(sub, i),          // src
-           arr->item_size);                  // size
-  }
-}
-
 // Enters line-reading mode and inserts the lines at the given 0-based index.
 // This means exactly the first `index` lines are left untouched.
 void read_and_insert_lines_at(int index) {
@@ -496,7 +475,7 @@ void read_and_insert_lines_at(int index) {
       *array__item_val(new_lines, new_lines->count - 1, char *) != '\0') {
     array__new_val(new_lines, char *) = strdup("");
   }
-  insert_subarr_into_arr(new_lines, lines, index);
+  array__insert_items(lines, index, new_lines->items, new_lines->count);
   current_line += new_lines->count;
   if ((next_line - 1) >= index) next_line += new_lines->count;
   array__delete(new_lines);
@@ -588,7 +567,7 @@ void move_lines(int start, int end, int dst) {
   }
 
   // 2. Append the deep copy after dst.
-  insert_subarr_into_arr(moving_lines, lines, dst);
+  array__insert_items(lines, dst, moving_lines->items, moving_lines->count);
   if ((next_line - 1) >= dst) next_line += moving_lines->count;
   array__delete(moving_lines);
 
