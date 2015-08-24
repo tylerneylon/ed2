@@ -233,6 +233,7 @@ int save_file(char *new_filename) {
 
   is_modified = 0;
   fclose(f);
+  printf("%d\n", nbytes_written);  // Report how many bytes we wrote.
   return nbytes_written;
 }
 
@@ -667,11 +668,8 @@ void ed2__run_command(char *command) {
             new_filename = ++command;
           }
         }
-        // TODO
-        //  [ ] Make this printf more similar to the load_file one, code-wise.
-        //  [ ] Look for ways to factor out {load,save}_file commonalities.
-        int bytes_written = save_file(new_filename);
-        if (bytes_written >= 0) printf("%d\n", bytes_written);
+        // TODO Look for ways to factor out {load,save}_file commonalities.
+        save_file(new_filename);
         return;
       }
 
