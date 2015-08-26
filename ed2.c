@@ -677,7 +677,6 @@ void ed2__run_command(char *command) {
             new_filename = ++command;
           }
         }
-        // TODO Look for ways to factor out {load,save}_file commonalities.
         save_file(new_filename);
         goto finally;
       }
