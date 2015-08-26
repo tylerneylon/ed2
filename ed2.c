@@ -40,6 +40,8 @@
 // ——————————————————————————————————————————————————————————————————————
 // Globals.
 
+char   last_command[string_capacity];
+
 char   last_error[string_capacity];
 int    do_print_errors = 0;
 
@@ -79,7 +81,10 @@ Array new_lines_array() {
 }
 
 // Initialize our data structures.
-void init() {
+void setup_for_new_file() {
+  if (lines)        array__delete(lines);
+  if (backup_lines) array__delete(backup_lines);
+
   lines               = new_lines_array();
   is_modified         = 0;
 
@@ -92,8 +97,9 @@ void init() {
   // This works with new/empty files as both the i=insert and a=append commands
   // will silently clamp their index to a valid point for the user.
   current_line = 0;
+  next_line    = 0;
 
-  strcpy(last_error, "");
+  strcpy(last_command, "");
 }
 
 // Backup functionality.
@@ -137,9 +143,10 @@ void break_into_lines(char *buffer) {
 
 // Load a file. Use the global `filename` unless `new_filename` is non-NULL, in
 // which case, the new name replaces the global filename and is loaded.
-void load_file(char *new_filename) {
+void load_file(char *new_filename, char *full_command) {
 
-  if (is_modified) {
+  // Stop with a warning if the file is modified and they haven't tried before.
+  if (is_modified && strcmp(last_command, full_command) != 0) {
     ed2__error(error__file_modified);
     return;
   }
@@ -155,6 +162,7 @@ void load_file(char *new_filename) {
   if (f == NULL) {
     if (errno == ENOENT) {
       printf("%s: No such file or directory\n", filename);
+      setup_for_new_file();
       return;
     }
     // Otherwise, the file exists but we couldn't open it.
@@ -456,7 +464,7 @@ void print_line(int line_index, int do_add_number) {
 void read_in_lines(Array lines) {
   while (1) {
     char *line = readline("");  // We own the memory of `line`.
-    if (strcmp(line, ".") == 0) return;
+    if (line == NULL || strcmp(line, ".") == 0) return;
     array__new_val(lines, char *) = line;
   }
 }
@@ -636,6 +644,7 @@ int ed2__parse_range(char *command, int *start, int *end) {
 
 void ed2__run_command(char *command) {
 
+  char *full_command = command;
   dbg_printf("run command: \"%s\"\n", command);
 
   int start, end;
@@ -655,7 +664,7 @@ void ed2__run_command(char *command) {
         int num_chars_parsed = scan_line_number(command + 1, &dst_line);
         if (num_chars_parsed == 0) dst_line = current_line;
         move_lines(start, end, dst_line);
-        return;
+        goto finally;
       }
 
     case 'w':  // Save the buffer to a file.
@@ -670,7 +679,7 @@ void ed2__run_command(char *command) {
         }
         // TODO Look for ways to factor out {load,save}_file commonalities.
         save_file(new_filename);
-        return;
+        goto finally;
       }
 
     case 'e':  // Load a file.
@@ -683,8 +692,8 @@ void ed2__run_command(char *command) {
             new_filename = ++command;
           }
         }
-        load_file(new_filename);
-        return;
+        load_file(new_filename, full_command);
+        goto finally;
       }
 
     case 's':  // Make a substitution.
@@ -694,12 +703,12 @@ void ed2__run_command(char *command) {
         int   is_global;
         int   did_work = parse_subst_params(++command, &pattern,
                                             &repl, &is_global);
-        if  (!did_work) return;
+        if  (!did_work) goto finally;
         save_state(backup_lines, &backup_current_line);
         substitute_on_lines(pattern, repl, start, end, is_global);
         free(pattern);
         free(repl);
-        return;
+        goto finally;
       }
   }
 
@@ -715,18 +724,19 @@ void ed2__run_command(char *command) {
           ed2__error(error__unexpected_address);
           break;
         }
-        if (is_modified) {
+        // Stop with a warning if the file is modified and they haven't tried
+        // before.
+        if (is_modified && strcmp(last_command, full_command) != 0) {
           ed2__error(error__file_modified);
-          // TODO Let 'em quit if they try again.
           break;
         }
         exit(0);
       }
 
-    case '\0': // If no range was given, advence a line. Print current_line.
+    case '\0': // If no range was given, advance a line. Print current_line.
       {
         if (is_default_range && !is_running_global) {
-          if (err_if_bad_current_line(current_line + 1)) return;
+          if (err_if_bad_current_line(current_line + 1)) goto finally;
         }
         print_range(current_line, current_line, 0);  // 0 = don't add line num
         break;
@@ -804,6 +814,11 @@ void ed2__run_command(char *command) {
       ed2__error(error__bad_cmd);
   }
 
+finally:
+
+  // Save the command to know when it's repeated. Used by the 'q', 'e' commands.
+  strlcpy(last_command, full_command, string_capacity);
+
   // TODO Clean up this command parsing bit.
   //  * Design carefully about treating the command suffix.
 }
@@ -815,14 +830,16 @@ void ed2__run_command(char *command) {
 int main(int argc, char **argv) {
 
   // Initialization.
-  init();
+  strcpy(last_error, "");
+  setup_for_new_file();
 
   if (argc < 2) {
     // The empty string indicates no filename has been given yet.
     filename[0] = '\0';
   } else {
     strlcpy(filename, argv[1], string_capacity);
-    load_file(NULL);  // NULL --> use the global `filename`
+    load_file(NULL,  // NULL --> use the global filename
+              "");   // ""   --> treat full_command as an empty string
 
     if (show_debug_output) {
       printf("File contents:'''\n");
