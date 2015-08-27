@@ -711,7 +711,14 @@ void ed2__run_command(char *command) {
       }
   }
 
-  // TODO Check for, and complain about, any command suffix.
+  // *command still points at the command character.
+  // All commands below expect zero suffix, so we can reliably given an error
+  // message here - and *not* run the command - if we see a suffix.
+
+  if (*(command + 1) != '\0') {
+    ed2__error(error__bad_cmd_suffix);
+    goto finally;
+  }
 
   int do_number_lines = 0;
 
