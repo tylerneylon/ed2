@@ -88,3 +88,6 @@ int  ed2__parse_range(char *command, int *start, int *end);
 #define error__bad_cmd_suffix       "unexpected command suffix"
 #define error__unexpected_address   "unexpected address"
 #define error__bad_cmd              "unknown command"
+
+// Command-specific errors.
+#define error__no_backup            "nothing to undo"

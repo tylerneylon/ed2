@@ -798,9 +798,14 @@ void ed2__run_command(char *command) {
       join_range(start, end, is_default_range);
       break;
 
-    // TODO Check that a valid backup exists.
     case 'u':  // Undo the last change, if there was one.
       {
+        // First, check that a backup exists.
+        if (backup_current_line == no_valid_backup) {
+          ed2__error(error__no_backup);
+          goto finally;
+        }
+
         // 1. Current state -> swap.
         Array swap_lines = new_lines_array();
         int   swap_current_line;
