@@ -829,9 +829,6 @@ finally:
 
   // Save the command to know when it's repeated. Used by the 'q', 'e' commands.
   strlcpy(last_command, full_command, string_capacity);
-
-  // TODO Clean up this command parsing bit.
-  //  * Design carefully about treating the command suffix.
 }
 
 
