@@ -1,4 +1,10 @@
-# ed2 plan
+# ed2 notes
+
+*This markdown file, previously called `plan.md`, contains personal
+ notes that I used while writing `ed2`. I'm leaving this file in the
+ repo in case any of it is interesting to anyone seeing how this
+ application was designed / built, and how it works. Some of this
+ may end up duplicated in `readme.md`.*
 
 ## Internal storage
 
