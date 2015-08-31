@@ -670,14 +670,20 @@ void ed2__run_command(char *command) {
     case 'w':  // Save the buffer to a file.
       {
         char *new_filename = NULL;  // NULL makes save_file use the global name.
+        int do_quit = 0;
         if (*++command != '\0') {
-          if (*command != ' ') {
+          if (*command == 'q' && *(command + 1) == '\0') {
+            do_quit = 1;
+          } else if (*command != ' ') {
             ed2__error(error__bad_cmd_suffix);
           } else {
             new_filename = ++command;
           }
         }
-        save_file(new_filename);
+        int ret_code = save_file(new_filename);
+        if (do_quit && ret_code != -1) {  // ret_code -1 means save_file failed.
+          exit(0);
+        }
         goto finally;
       }
 
