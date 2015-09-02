@@ -100,6 +100,26 @@ twice in a row.
     you type   | q
     (ed2 quits)
 
+## Full command list
+
+This is the complete list of commands supported by `ed2`. For lengthier
+description, see the man page for `ed`. The syntax for `ed2` is designed
+to be extremely similar.
+
+Many commands accept a line range of the form `start,end` immediately before
+the command letter. If a range is omitted, a per-command default range is used.
+
+### General commands
+
+| Command | Description |
+| :-----: | :---------- |
+| (empty) | Print current line and go to the next line. |
+| `p`     | Print the lines in the given line range. |
+| `h`     | Print a message for the last error. |
+| `H`     | Toggle error messages; off by default. |
+| `q`     | Quit. To quit without saving changes, use twice in a row. |
+| `=`     | Prints: total number of lines if no range is given; otherwise, last line number in the range. |
+
 ---
 
 # TEMP
