@@ -114,11 +114,25 @@ the command letter. If a range is omitted, a per-command default range is used.
 | Command | Description |
 | :-----: | :---------- |
 | (empty) | Print current line and go to the next line. |
-| `p`     | Print the lines in the given line range. |
-| `h`     | Print a message for the last error. |
-| `H`     | Toggle error messages; off by default. |
-| `q`     | Quit. To quit without saving changes, use twice in a row. |
+| `p`     | **Print** the lines in the given line range. |
+| `n`     | Print the lines in the given line range along with prefixed line **numbers**. |
+| `h`     | Print a message for the last error; this is **help**. |
+| `H`     | Toggle error messages; off by default. This is more serious **Help**. |
+| `q`     | **Quit**. To quit without saving changes, use twice in a row. |
 | `=`     | Prints: total number of lines if no range is given; otherwise, last line number in the range. |
+
+### Editing commands
+
+
+| Command | Description |
+| :-: | :---------- |
+| `a` | Enter input mode; new lines are **appended**. A line containing only a period marks the end of input. |
+| `i` | Enter input mode; new lines are **inserted**. |
+| `d` | **Delete** lines in the given line range. |
+| `c` | **Change** lines in the given line range. Deletes the lines and enters input mode for their replacements. |
+| `j` | **Join** the lines in the given line range. |
+| `m` | **Move** the given line range to right after the line number given after the `m` command. |
+| `u` | **Undo** the last change. |
 
 ---
 
