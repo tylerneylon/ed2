@@ -123,7 +123,6 @@ the command letter. If a range is omitted, a per-command default range is used.
 
 ### Editing commands
 
-
 | Command | Description |
 | :-: | :---------- |
 | `a` | Enter input mode; new lines are **appended**. A line containing only a period marks the end of input. |
@@ -134,6 +133,21 @@ the command letter. If a range is omitted, a per-command default range is used.
 | `m` | **Move** the given line range to right after the line number given after the `m` command. |
 | `u` | **Undo** the last change. |
 
+### File commands
+
+| Command | Description |
+| :-: | :---------- |
+| `e` | **Edit** a file. |
+| `w` | **Write** a file to disk. |
+
+### Regex-based commands
+
+| Command | Description |
+| :-: | :---------- |
+| `s` | **Substitute** a regular expression with a given string. |
+| `g` | **Globally** run a given command sequence on all lines matching a regular expression. |
+| `v` | An in**verted** version of the `g` command; runs on all non-matching lines. |
+
 ---
 
 # TEMP
@@ -143,5 +157,5 @@ NOTE This file is a work in progress. Planned sections:
 
 - [x] How to download and compile
 - [x] Basic usage examples
-- [ ] Full command list
+- [x] Full command list
 - [ ] High level overview of the code
