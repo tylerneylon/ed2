@@ -38,7 +38,7 @@ This example assumes you're in the `ed2` directory, and have built
 
 The number 28543 indicates the number of bytes read from the file being edited.
 
-    you type   | 1,9n
+    you type   | 1,8n
     ed2 output | 1	// ed2.c
     ed2 output | 2	//
     ed2 output | 3	// An ed-like text editor.
@@ -47,9 +47,8 @@ The number 28543 indicates the number of bytes read from the file being edited.
     ed2 output | 6	//   ed2 [filename]
     ed2 output | 7	//
     ed2 output | 8	// Opens filename if present, or a new buffer if no filename is given.
-    ed2 output | 9	// Edit/save the buffer with essentially the same commands as the original
 
-The command `1,9n` provides a line range - the lines 1 through 9, inclusive - and a command `n`.
+The command `1,8n` provides a line range - the lines 1 through 8, inclusive - and a command `n`.
 The `n` command tells `ed2` to print those lines annotated with line numbers. The `p`
 command would have done the same thing without adding line numbers.
 
