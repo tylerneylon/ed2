@@ -2,7 +2,7 @@
 #
 
 # Intermediate target lists.
-obj = $(addprefix out/,array.o list.o map.o memprofile.o global.o)
+obj = $(addprefix out/,array.o list.o map.o memprofile.o global.o subst.o)
 
 # Variables for build settings.
 includes = -I.
@@ -28,6 +28,9 @@ out:
 	mkdir -p out
 
 out/global.o : global.c global.h | out
+	$(cc) -o $@ -c $<
+
+out/subst.o : subst.c subst.h | out
 	$(cc) -o $@ -c $<
 
 out/%.o : cstructs/%.c cstructs/%.h | out
