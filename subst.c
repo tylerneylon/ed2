@@ -106,7 +106,7 @@ int substitute_on_line(regex_t *compiled_re, int line_num, int offset,
                        char *repl, char *err_str) {
   regmatch_t matches[max_matches];
   int exec_flags = 0;
-  char *string = line_at(line_num - 1) + offset;
+  char *string = line_at_index(line_num - 1) + offset;
   int err_code = regexec(compiled_re, string, max_matches, &matches[0],
                          exec_flags);
   if (err_code) {

@@ -71,11 +71,11 @@ void run_global_command(int start, int end, char *pattern,
   int exec_flags  = 0;
   for (int i = start; i <= end; ++i) {
     regmatch_t matches[max_matches];
-    int err_code = regexec(&compiled_re, line_at(i - 1), max_matches,
+    int err_code = regexec(&compiled_re, line_at_index(i - 1), max_matches,
                            &matches[0], exec_flags);
     if ((!is_inverted && err_code == 0) ||
         ( is_inverted && err_code == REG_NOMATCH)) {
-      map__set(matched_lines, line_at(i - 1), 0);
+      map__set(matched_lines, line_at_index(i - 1), 0);
     } else if (err_code && err_code != REG_NOMATCH && err_str[0] == '\0') {
       regerror(err_code, &compiled_re, err_str, string_capacity);
       ed2__error(err_str);
@@ -86,14 +86,14 @@ void run_global_command(int start, int end, char *pattern,
   // Pass 2: Run `commands` on each matching line.
 
   for (next_line = 1; next_line <= last_line;) {
-    if (!map__get(matched_lines, line_at(next_line - 1))) {
+    if (!map__get(matched_lines, line_at_index(next_line - 1))) {
       next_line++;  // Skip to the next line if this one doesn't match.
       continue;
     }
     current_line = next_line;
     next_line++;
     array__for(char **, sub_cmd, commands, i) {
-      ed2__run_command(*sub_cmd);
+      ed2__run_command(*sub_cmd);  // This updates next_line for us.
       if (last_error[0]) goto finally;  // Stop early on errors.
     }
   }

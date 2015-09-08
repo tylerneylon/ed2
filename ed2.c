@@ -1,14 +1,6 @@
 // ed2.c
 //
-// An ed-like text editor.
-//
-// Usage:
-//   ed2 [filename]
-//
-// Opens filename if present, or a new buffer if no filename is given.
-// Edit/save the buffer with essentially the same commands as the original
-// ed text editor. See plan.md for a summary of which ed commands have been
-// implemented.
+// See the top-of-file comments of ed2.h for an introduction to this module.
 //
 
 // Header for this file.
@@ -53,12 +45,12 @@ char   filename[string_capacity];
 // The byte stream can be formed by joining this array with "\n".
 Array  lines = NULL;
 
-int    current_line;  // This is 1-indexed.
-int    is_modified;  // This is set in save_state; it's called for edits.
+int    current_line;  // This is 1-based.
+int    is_modified;   // This is set in save_state; it's called for edits.
 
 // `next_line` is used to help run global commands. Edit commands keep it
 // updated when lines before it are inserted or deleted.
-int    next_line = 0;  // Like current_line, this is 1-indexed.
+int    next_line = 0;  // Like current_line, this is 1-based.
 int    is_running_global = 0;  // This is 1 if a global command is running.
 
 // Data used for undos.
@@ -68,6 +60,28 @@ int    backup_current_line;
 
 // ——————————————————————————————————————————————————————————————————————
 // Internal functions.
+
+// Backup functionality.
+
+void deep_copy_array(Array src, Array dst) {
+  array__clear(dst);
+  array__for(char **, line, src, i) {
+    array__new_val(dst, char *) = strdup(*line);
+  }
+}
+
+void save_state(Array saved_lines, int *saved_current_line) {
+  is_modified = 1;
+  *saved_current_line = current_line;
+  deep_copy_array(lines, saved_lines);
+}
+
+void load_state_from_backup() {
+  deep_copy_array(backup_lines, lines);
+  current_line = backup_current_line;
+}
+
+// File loading and saving functionality.
 
 void line_releaser(void *line_vp, void *context) {
   char *line = *(char **)line_vp;
@@ -92,35 +106,12 @@ void setup_for_new_file() {
   backup_lines        = new_lines_array();
   backup_current_line = no_valid_backup;
 
-  // This variable is the same as what the user considers it; this is
-  // non-obvious in that our lines array is 0-indexed, so we have to be careful
-  // when indexing into `lines`.
   // This works with new/empty files as both the i=insert and a=append commands
   // will silently clamp their index to a valid point for the user.
   current_line = 0;
   next_line    = 0;
 
   strcpy(last_command, "");
-}
-
-// Backup functionality.
-
-void deep_copy_array(Array src, Array dst) {
-  array__clear(dst);
-  array__for(char **, line, src, i) {
-    array__new_val(dst, char *) = strdup(*line);
-  }
-}
-
-void save_state(Array saved_lines, int *saved_current_line) {
-  is_modified = 1;
-  *saved_current_line = current_line;
-  deep_copy_array(lines, saved_lines);
-}
-
-void load_state_from_backup() {
-  deep_copy_array(backup_lines, lines);
-  current_line = backup_current_line;
 }
 
 // Separate a raw buffer into a sequence of indexed lines.
@@ -255,9 +246,11 @@ int scan_line_number(char *command, int *num) {
   return (num_items_parsed > 0 ? num_chars_parsed : 0);
 }
 
-void print_line(int line_index, int do_add_number) {
-  if (do_add_number) printf("%d\t", line_index);
-  printf("%s\n", line_at(line_index - 1));
+// Functions to help execute editing/printing commands.
+
+void print_line(int line_num, int do_add_number) {
+  if (do_add_number) printf("%d\t", line_num);
+  printf("%s\n", line_at_index(line_num - 1));
 }
 
 // This enters multi-line input mode. It accepts lines of input, including
@@ -273,7 +266,7 @@ void read_in_lines(Array lines) {
 
 // Enters line-reading mode and inserts the lines at the given 0-based index.
 // This means exactly the first `index` lines are left untouched.
-void read_and_insert_lines_at(int index) {
+void read_and_insert_lines_at_index(int index) {
   // Silently clamp the index to legal values.
   if (index < 0)            index = 0;
   if (index > lines->count) index = lines->count;
@@ -341,14 +334,14 @@ void join_range(int start, int end, int is_default_range) {
 
   // 2. Calculate the size we need.
   size_t joined_len = 1;  // Start at 1 for the null terminator.
-  for (int i = start; i <= end; ++i) joined_len += strlen(line_at(i - 1));
+  for (int i = start; i <= end; ++i) joined_len += strlen(line_at_index(i - 1));
 
   // 3. Allocate, join, and set the new line.
   char *new_line = malloc(joined_len);
   new_line[0] = '\0';
-  for (int i = start; i <= end; ++i) strcat(new_line, line_at(i - 1));
-  free(line_at(start - 1));
-  line_at(start - 1) = new_line;
+  for (int i = start; i <= end; ++i) strcat(new_line, line_at_index(i - 1));
+  free(line_at_index(start - 1));
+  line_at_index(start - 1) = new_line;
   // This method is valid because of the range checks at the function start.
   for (int i = start + 1; i <= end; ++i) {
     array__remove_item(lines, array__item_ptr(lines, i - 1));
@@ -374,7 +367,7 @@ void move_lines(int start, int end, int dst) {
   // 1. Deep copy the lines being moved so we can call delete_range later.
   Array moving_lines = array__new(end - start + 1, sizeof(char *));
   for (int i = start; i <= end; ++i) {
-    array__new_val(moving_lines, char *) = strdup(line_at(i - 1));
+    array__new_val(moving_lines, char *) = strdup(line_at_index(i - 1));
   }
 
   // 2. Append the deep copy after dst.
@@ -528,7 +521,7 @@ void ed2__run_command(char *command) {
     goto finally;
   }
 
-  int do_number_lines = 0;
+  int do_number_lines = 0;  // This value is shared by the n and p commands.
 
   switch(*command) {
 
@@ -578,12 +571,13 @@ void ed2__run_command(char *command) {
 
     case 'a':  // Append new lines.
       save_state(backup_lines, &backup_current_line);
-      read_and_insert_lines_at(current_line);
+      // This inserts at line number current_line + 1 = appending.
+      read_and_insert_lines_at_index(current_line);
       break;
 
     case 'i':  // Insert new lines.
       save_state(backup_lines, &backup_current_line);
-      read_and_insert_lines_at(current_line - 1);
+      read_and_insert_lines_at_index(current_line - 1);
       break;
 
     case 'd':  // Delete lines in the effective range.
@@ -596,8 +590,8 @@ void ed2__run_command(char *command) {
         save_state(backup_lines, &backup_current_line);
         int is_ending_range = (end == last_line);
         delete_range(start, end);
-        int insert_point = is_ending_range ? last_line : current_line - 1;
-        read_and_insert_lines_at(insert_point);
+        int insert_index = is_ending_range ? last_line : current_line - 1;
+        read_and_insert_lines_at_index(insert_index);
         break;
       }
 
@@ -656,7 +650,6 @@ int main(int argc, char **argv) {
     strlcpy(filename, argv[1], string_capacity);
     load_file(NULL,  // NULL --> use the global filename
               "");   // ""   --> treat full_command as an empty string
-
     if (show_debug_output) {
       printf("File contents:'''\n");
       array__for(char **, line, lines, i) printf(i ? "\n%s" : "%s", *line);

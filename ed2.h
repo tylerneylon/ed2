@@ -1,6 +1,22 @@
 // ed2.h
 //
-// This declares globals and functions which may be used by other modules.
+// An ed-like text editor.
+//
+// Usage:
+//   ed2 [filename]
+//
+// Opens filename if present, or a new buffer if no filename is given.
+// Edit/save the buffer with essentially the same commands as the original
+// ed text editor. See plan.md for a summary of which ed commands have been
+// implemented.
+//
+// This header declares globals and functions to be used by other modules.
+//
+// One difficulty of this program is that users think in terms of line numbers
+// that begin with 1 while C code thinks in terms of indexes that start with 0.
+// To keep the code clear, the word "line" consistently means a 1-based line
+// number and the word "index" consistently means a 0-based line index; the
+// variable names "start" and "end" also indicate 1-based line numbers.
 //
 
 #pragma once
@@ -16,8 +32,8 @@
 
 // `next_line` is used to help run global commands. Edit commands keep it
 // updated when lines before it are inserted or deleted.
-extern int next_line;     // This is 1-indexed.
-extern int current_line;  // This is 1-indexed.
+extern int next_line;     // This is 1-based.
+extern int current_line;  // This is 1-based.
 extern int is_running_global;  // This is 1 if a global command is running.
 
 // The lines are held in an array. The array frees removed lines for us.
@@ -31,7 +47,7 @@ extern char last_error[string_capacity];
 // ——————————————————————————————————————————————————————————————————————
 // Public functions.
 
-// This prints '?' and updates the last_error string.
+// By default, this prints '?' and updates the last_error string.
 void ed2__error(const char *err_str);
 
 // This runs the given command string.
@@ -48,10 +64,11 @@ int  ed2__parse_range(char *command, int *start, int *end);
 
 // This can be used for both setting and getting.
 // Don't forget to free the old value if setting.
-#define line_at(index) array__item_val(lines, index, char *)
+#define line_at_index(index) array__item_val(lines, index, char *)
 
-// This provides the last 1-indexed line number.
-#define last_line (*line_at(lines->count - 1) ? lines->count : lines->count - 1)
+// This provides the last line number.
+#define last_line \
+    (*line_at_index(lines->count - 1) ? lines->count : lines->count - 1)
 
 #define max_matches 10
 
