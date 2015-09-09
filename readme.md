@@ -150,7 +150,7 @@ the command letter. If a range is omitted, a per-command default range is used.
 The original code in this repo exists in three modules:
 
 | module | description |
-| :-:    | :- |
+| :----: | :---------- |
 | global | code for the `g` and `v` global commands |
 | subst  | code for the `s` substitution command |
 | ed2    | everything else |
@@ -158,7 +158,7 @@ The original code in this repo exists in three modules:
 Three libraries are used:
 
 | library  | description |
-| :-:      | :- |
+| :-----:  | :---------- |
 | readline | a standard way to accept line-by-line input |
 | regex    | regular expression searching |
 | cstructs | dynamically-sized data containers; specifically, Array and Map |
