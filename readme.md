@@ -145,14 +145,35 @@ the command letter. If a range is omitted, a per-command default range is used.
 | `g` | **Globally** run a given command sequence on all lines matching a regular expression. |
 | `v` | An in**verted** version of the `g` command; runs on all non-matching lines. |
 
----
+## Overview of the code
 
-# TEMP
-TODO: Remove this section once these items are complete.
+The original code in this repo exists in three modules:
 
-NOTE This file is a work in progress. Planned sections:
+| module | description |
+| :-:    | :- |
+| global | code for the `g` and `v` global commands |
+| subst  | code for the `s` substitution command |
+| ed2    | everything else |
 
-- [x] How to download and compile
-- [x] Basic usage examples
-- [x] Full command list
-- [ ] High level overview of the code
+Three libraries are used:
+
+| library  | description |
+| :-:      | :- |
+| readline | a standard way to accept line-by-line input |
+| regex    | regular expression searching |
+| cstructs | dynamically-sized data containers; specifically, Array and Map |
+
+The primary data structure is the `lines` Array, which is a contiguous array of `char *` values that
+point to individual lines. This structure incurs an *O(n)* time cost to insert lines at an arbitrary
+position, but the constants involved are small since only pointers are being shuffled around as
+opposed to the actual bytes of the file buffer itself. This design is meant as a compromise that
+offers easier coding while providing fast-enough performance in typical use cases. For example,
+the insert command on a 1,000,000 line file still feels instantaneous on a modern machine.
+
+The code is written to be readable. I'm not sure if any other coders will find this interesting,
+but it may serve as an example of one way to handle the low-level buffer interactions of writing a
+text editor. I imagine that writing a full-fledged editor would consist of a layer similar to this
+augmented with things like a more sophisticated interaction model such as a gui text view, a
+more visual selection system, code highlighting and auto-indenting functionality, autocomplete
+functionality, multiple file support, and perhaps an embedded programming language to allow for
+customized behavior.
