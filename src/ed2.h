@@ -7,8 +7,7 @@
 //
 // Opens filename if present, or a new buffer if no filename is given.
 // Edit/save the buffer with essentially the same commands as the original
-// ed text editor. See plan.md for a summary of which ed commands have been
-// implemented.
+// ed text editor.
 //
 // This header declares globals and functions to be used by other modules.
 //
