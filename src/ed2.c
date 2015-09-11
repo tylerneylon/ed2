@@ -63,40 +63,40 @@ int    backup_current_line;
 
 // Backup functionality.
 
-void deep_copy_array(Array src, Array dst) {
+static void deep_copy_array(Array src, Array dst) {
   array__clear(dst);
   array__for(char **, line, src, i) {
     array__new_val(dst, char *) = strdup(*line);
   }
 }
 
-void save_state(Array saved_lines, int *saved_current_line) {
+static void save_state(Array saved_lines, int *saved_current_line) {
   is_modified = 1;
   *saved_current_line = current_line;
   deep_copy_array(lines, saved_lines);
 }
 
-void load_state_from_backup() {
+static void load_state_from_backup() {
   deep_copy_array(backup_lines, lines);
   current_line = backup_current_line;
 }
 
 // File loading and saving functionality.
 
-void line_releaser(void *line_vp, void *context) {
+static void line_releaser(void *line_vp, void *context) {
   char *line = *(char **)line_vp;
   assert(line);
   free(line);
 }
 
-Array new_lines_array() {
+static Array new_lines_array() {
   Array new_array = array__new(64, sizeof(char *));
   new_array->releaser = line_releaser;
   return new_array;
 }
 
 // Initialize our data structures.
-void setup_for_new_file() {
+static void setup_for_new_file() {
   if (lines)        array__delete(lines);
   if (backup_lines) array__delete(backup_lines);
 
@@ -116,7 +116,7 @@ void setup_for_new_file() {
 
 // Separate a raw buffer into a sequence of indexed lines.
 // Destroys the buffer in the process.
-void break_into_lines(char *buffer) {
+static void break_into_lines(char *buffer) {
   assert(lines);  // Check that lines has been initialized.
   assert(buffer);
 
@@ -135,7 +135,7 @@ void break_into_lines(char *buffer) {
 
 // Load a file. Use the global `filename` unless `new_filename` is non-NULL, in
 // which case, the new name replaces the global filename and is loaded.
-void load_file(char *new_filename, char *full_command) {
+static void load_file(char *new_filename, char *full_command) {
 
   // Stop with a warning if the file is modified and they haven't tried before.
   if (is_modified && strcmp(last_command, full_command) != 0) {
@@ -193,7 +193,7 @@ bad_read:
 
 // Save the buffer. If filename is NULL, save it to the current filename.
 // This returns the number of bytes written on success and -1 on error.
-int save_file(char *new_filename) {
+static int save_file(char *new_filename) {
   if (new_filename) strlcpy(filename, new_filename, string_capacity);
   if (strlen(filename) == 0) {
     ed2__error(error__no_current_filename);
@@ -240,7 +240,7 @@ int save_file(char *new_filename) {
 // Parsing functions.
 
 // This returns the number of characters scanned.
-int scan_line_number(char *command, int *num) {
+static int scan_line_number(char *command, int *num) {
   int num_chars_parsed;
   int num_items_parsed = sscanf(command, "%d%n", num, &num_chars_parsed);
   return (num_items_parsed > 0 ? num_chars_parsed : 0);
@@ -248,7 +248,7 @@ int scan_line_number(char *command, int *num) {
 
 // Functions to help execute editing/printing commands.
 
-void print_line(int line_num, int do_add_number) {
+static void print_line(int line_num, int do_add_number) {
   if (do_add_number) printf("%d\t", line_num);
   printf("%s\n", line_at_index(line_num - 1));
 }
@@ -256,7 +256,7 @@ void print_line(int line_num, int do_add_number) {
 // This enters multi-line input mode. It accepts lines of input, including
 // meaningful blank lines, until a line with a single period is given.
 // The lines are appended to the end of the given `lines` Array.
-void read_in_lines(Array lines) {
+static void read_in_lines(Array lines) {
   while (1) {
     char *line = readline("");  // We own the memory of `line`.
     if (line == NULL || strcmp(line, ".") == 0) return;
@@ -266,7 +266,7 @@ void read_in_lines(Array lines) {
 
 // Enters line-reading mode and inserts the lines at the given 0-based index.
 // This means exactly the first `index` lines are left untouched.
-void read_and_insert_lines_at_index(int index) {
+static void read_and_insert_lines_at_index(int index) {
   // Silently clamp the index to legal values.
   if (index < 0)            index = 0;
   if (index > lines->count) index = lines->count;
@@ -286,7 +286,7 @@ void read_and_insert_lines_at_index(int index) {
 }
 
 // Returns true iff the range is bad.
-int err_if_bad_range(int start, int end) {
+static int err_if_bad_range(int start, int end) {
   if (start < 1 || end > last_line) {
     ed2__error(error__invalid_address);
     return 1;
@@ -295,7 +295,7 @@ int err_if_bad_range(int start, int end) {
 }
 
 // Returns true iff the new current line is bad.
-int err_if_bad_current_line(int new_current_line) {
+static int err_if_bad_current_line(int new_current_line) {
   if (new_current_line < 1 || new_current_line > last_line) {
     ed2__error(error__invalid_address);
     return 1;
@@ -306,14 +306,14 @@ int err_if_bad_current_line(int new_current_line) {
 
 // Print out the given lines; useful for the p or empty commands.
 // This simply produces an error if the range is invalid.
-void print_range(int start, int end, int do_number_lines) {
+static void print_range(int start, int end, int do_number_lines) {
   dbg_printf("%s(%d, %d, do_number_lines=%d)\n", __FUNCTION__,
              start, end, do_number_lines);
   if (err_if_bad_range(start, end)) return;
   for (int i = start; i <= end; ++i) print_line(i, do_number_lines);
 }
 
-void delete_range(int start, int end) {
+static void delete_range(int start, int end) {
   if (err_if_bad_range(start, end)) return;
   for (int n = end - start + 1; n > 0; --n) {
     array__remove_item(lines, array__item_ptr(lines, start - 1));
@@ -323,7 +323,7 @@ void delete_range(int start, int end) {
   current_line = (start <= last_line ? start : last_line);
 }
 
-void join_range(int start, int end, int is_default_range) {
+static void join_range(int start, int end, int is_default_range) {
   // 1. Establish and check the validity of the range.
   if (is_default_range) {
     start = current_line;
@@ -354,7 +354,7 @@ void join_range(int start, int end, int is_default_range) {
 }
 
 // Moves the range [start, end] to be after the text currently at line dst.
-void move_lines(int start, int end, int dst) {
+static void move_lines(int start, int end, int dst) {
   if (start < 1 || end < start || last_line < end) {
     ed2__error(error__invalid_range);
     return;

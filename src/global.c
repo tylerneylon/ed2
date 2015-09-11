@@ -21,18 +21,18 @@
 // Internal functions.
 
 // The next two functions are for the matched_lines hash map.
-int hash_line(void *line_vptr) {
+static int hash_line(void *line_vptr) {
   return (int)(intptr_t)(line_vptr);
 }
 
-int eq_lines(void *line1_vptr, void *line2_vptr) {
+static int eq_lines(void *line1_vptr, void *line2_vptr) {
   return line1_vptr == line2_vptr;
 }
 
 // `commands` is an Array with `char *` items; each is a single-line command
 // that can be executed with a call to ed2__run_command.
-void run_global_command(int start, int end, char *pattern,
-                        Array commands, int is_inverted) {
+static void run_global_command(int start, int end, char *pattern,
+                               Array commands, int is_inverted) {
   is_running_global = 1;
   dbg_printf("%s(start=%d, end=%d, pattern='%s', <commands>)\n",
              __FUNCTION__, start, end, pattern);
@@ -109,7 +109,7 @@ finally:
 
 // Returns 1 iff the given line ends with a backslash-escaped newline,
 // indicating that there are more commands to the sequence.
-int does_end_in_continuation(char *line) {
+static int does_end_in_continuation(char *line) {
   assert(line);
   int n = strlen(line);
   return n ? (line[n - 1] == '\\') : 0;

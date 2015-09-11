@@ -21,7 +21,8 @@
 // has offsets [start, end). It allocates a new string just long enough to hold
 // <prefix> <repl> <suffix>, frees *line_ptr, and reassigns *line_ptr to the new
 // string.
-void substring_repl(char **line_ptr, size_t start, size_t end, char *repl) {
+static void substring_repl(char **line_ptr, size_t start, size_t end,
+                           char *repl) {
   assert(line_ptr && *line_ptr && repl);
   int orig_line_len = strlen(*line_ptr);
   assert(    0 <= start && start <  orig_line_len);
@@ -47,8 +48,8 @@ void substring_repl(char **line_ptr, size_t start, size_t end, char *repl) {
 // `full_repl`. The caller is responsible for freeing that string. If
 // `full_repl` is NULL, this returns the number of bytes to allocate for
 // `full_repl`.
-size_t make_full_repl(char *repl, char *string, regmatch_t *matches,
-                      char **full_repl) {
+static size_t make_full_repl(char *repl, char *string, regmatch_t *matches,
+                             char **full_repl) {
   size_t bytes_needed = 0;
   if (full_repl) {
     bytes_needed = make_full_repl(repl, string, matches, NULL);
@@ -102,8 +103,8 @@ size_t make_full_repl(char *repl, char *string, regmatch_t *matches,
 // next offset to use for other non-overlapping substitutions on the same line,
 // or -1 if there was an error. If `err_str` is the empty string, it is updated
 // with a user-friendly error string in case of an error.
-int substitute_on_line(regex_t *compiled_re, int line_num, int offset,
-                       char *repl, char *err_str) {
+static int substitute_on_line(regex_t *compiled_re, int line_num, int offset,
+                              char *repl, char *err_str) {
   regmatch_t matches[max_matches];
   int exec_flags = 0;
   char *string = line_at_index(line_num - 1) + offset;
