@@ -29,7 +29,6 @@
 // The user can't undo when backup_current_line == no_valid_backup.
 #define no_valid_backup -1
 
-
 // ——————————————————————————————————————————————————————————————————————
 // Globals.
 
@@ -60,6 +59,22 @@ int    backup_current_line;
 
 // ——————————————————————————————————————————————————————————————————————
 // Internal functions.
+
+// This is a patch, inline, since we are troubled to find the 'strlcpy'
+// For the backgrounders of strlcpy and strncpy issues, see
+// https://lwn.net/Articles/507319/
+static char * strlcpy(char *dest, const char *src, size_t n) {
+  size_t i;
+
+  // Safe method, so this copies only up to the length in 'n' parameter
+  // or until it encounters a null terminator in src string
+  for (i = 0; i < n && src[i] != '\0'; i++)
+    dest[i] = src[i];
+  for ( ; i < n; i++)
+    dest[i] = '\0';
+  
+  return dest;
+}
 
 // Backup functionality.
 
